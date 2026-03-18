@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifeOps Pro — Life Admin, Handled.</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0B1F3A;
+    --navy-mid: #152d52;
+    --teal: #0EA5A0;
+    --teal-light: #14C4BE;
+    --teal-glow: rgba(14,165,160,0.15);
+    --white: #ffffff;
+    --off-white: #F7F9FC;
+    --gray-100: #EEF2F7;
+    --gray-300: #B8C5D6;
+    --gray-500: #6B7E96;
+    --gray-700: #3A4F66;
+    --accent: #F59E0B;
+    --green: #10B981;
+    --red: #EF4444;
+    --shadow-sm: 0 2px 8px rgba(11,31,58,0.08);
+    --shadow-md: 0 8px 32px rgba(11,31,58,0.12);
+    --shadow-lg: 0 20px 60px rgba(11,31,58,0.16);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--white);
+    color: var(--navy);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 5%; height: 70px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(11,31,58,0.07);
+    transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: var(--shadow-md); }
+
+  .logo {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800; font-size: 1.3rem;
+    color: var(--navy);
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer;
+  }
+  .logo-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--teal), #0B8A86);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+
+  .nav-links {
+    display: flex; align-items: center; gap: 32px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 0.9rem; font-weight: 500;
+    color: var(--gray-700); text-decoration: none;
+    transition: color 0.2s;
+    cursor: pointer;
+  }
+  .nav-links a:hover { color: var(--teal); }
+
+  .nav-cta {
+    display: flex; gap: 10px;
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 10px 22px; border-radius: 10px;
+    font-family: 'Sora', sans-serif; font-weight: 600;
+    font-size: 0.88rem; cursor: pointer;
+    border: none; transition: all 0.22s;
+    text-decoration: none; display: inline-block;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--teal), #0B8A86);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(14,165,160,0.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(14,165,160,0.45);
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--navy);
+    border: 1.5px solid var(--gray-300);
+  }
+  .btn-outline:hover {
+    border-color: var(--teal);
+    color: var(--teal);
+    transform: translateY(-1px);
+  }
+  .btn-lg {
+    padding: 15px 34px; font-size: 1rem;
+    border-radius: 12px;
+  }
+  .btn-white {
+    background: #fff; color: var(--navy);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+  .btn-white:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+    transform: translateY(-2px);
+  }
+
+  /* ── PAGE SYSTEM ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── SECTION BASICS ── */
+  section { padding: 90px 5%; }
+  .section-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--teal-glow);
+    color: var(--teal);
+    padding: 6px 14px; border-radius: 50px;
+    font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+    color: var(--navy); margin-bottom: 16px;
+  }
+  .section-sub {
+    font-size: 1.05rem; color: var(--gray-500);
+    max-width: 560px; line-height: 1.7;
+  }
+  .text-center { text-align: center; }
+  .text-center .section-sub { margin: 0 auto; }
+
+  /* ── HERO ── */
+  .hero {
+    padding-top: 140px;
+    padding-bottom: 80px;
+    background: linear-gradient(160deg, #f0f7ff 0%, #e8f8f7 40%, #fff 100%);
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -100px; right: -100px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(14,165,160,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; bottom: -60px; left: -80px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(11,31,58,0.05) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .hero-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 60px; align-items: center;
+    position: relative; z-index: 1;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; border: 1.5px solid rgba(14,165,160,0.3);
+    padding: 7px 16px; border-radius: 50px;
+    font-size: 0.82rem; font-weight: 600; color: var(--teal);
+    margin-bottom: 24px;
+    animation: fadeSlideDown 0.6s ease both;
+  }
+  .badge-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--teal);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.3); }
+  }
+
+  .hero-title {
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    color: var(--navy); margin-bottom: 20px;
+    animation: fadeSlideDown 0.7s ease both 0.1s;
+  }
+  .hero-title span { color: var(--teal); }
+
+  .hero-sub {
+    font-size: 1.1rem; color: var(--gray-500);
+    line-height: 1.75; margin-bottom: 36px;
+    animation: fadeSlideDown 0.7s ease both 0.2s;
+  }
+
+  .hero-cta {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    animation: fadeSlideDown 0.7s ease both 0.3s;
+  }
+
+  .hero-stats {
+    display: flex; gap: 32px; margin-top: 48px;
+    animation: fadeSlideDown 0.7s ease both 0.4s;
+  }
+  .hero-stat strong {
+    display: block; font-family: 'Sora', sans-serif;
+    font-size: 1.6rem; font-weight: 800; color: var(--navy);
+  }
+  .hero-stat span { font-size: 0.85rem; color: var(--gray-500); }
+
+  .hero-visual {
+    position: relative;
+    animation: fadeSlideUp 0.8s ease both 0.2s;
+  }
+
+  .dashboard-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    padding: 24px;
+    border: 1px solid rgba(11,31,58,0.06);
+  }
+
+  .dash-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .dash-title { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--navy); }
+  .dash-date { font-size: 0.78rem; color: var(--gray-500); }
+
+  .task-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--gray-100);
+  }
+  .task-item:last-child { border-bottom: none; }
+  .task-status {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-done { background: var(--green); }
+  .status-pending { background: var(--accent); }
+  .status-progress { background: var(--teal); }
+  .task-name { font-size: 0.88rem; font-weight: 500; flex: 1; }
+  .task-tag {
+    font-size: 0.72rem; padding: 3px 10px; border-radius: 50px;
+    font-weight: 600;
+  }
+  .tag-ai { background: rgba(14,165,160,0.12); color: var(--teal); }
+  .tag-human { background: rgba(11,31,58,0.08); color: var(--navy-mid); }
+
+  .mini-card {
+    position: absolute;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: var(--shadow-md);
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    border: 1px solid rgba(11,31,58,0.06);
+    animation: float 4s ease-in-out infinite;
+  }
+  .mini-card-1 { top: -20px; right: -30px; animation-delay: 0s; }
+  .mini-card-2 { bottom: -10px; left: -40px; animation-delay: 2s; }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .mini-label { font-size: 0.7rem; color: var(--gray-500); margin-bottom: 2px; }
+  .mini-val { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 1.1rem; color: var(--navy); }
+  .mini-sub { font-size: 0.7rem; color: var(--green); font-weight: 600; }
+
+  /* ── HOW IT WORKS ── */
+  .how-works { background: var(--off-white); }
+  .steps-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px; margin-top: 56px; max-width: 1100px; margin-left: auto; margin-right: auto;
+  }
+  .step-card {
+    background: #fff; border-radius: var(--radius);
+    padding: 32px 28px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(11,31,58,0.05);
+    position: relative;
+    transition: all 0.28s;
+  }
+  .step-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-md);
+  }
+  .step-num {
+    font-family: 'Sora', sans-serif; font-size: 2.8rem;
+    font-weight: 800; color: var(--teal-glow);
+    color: rgba(14,165,160,0.15);
+    position: absolute; top: 16px; right: 20px;
+    line-height: 1;
+  }
+  .step-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--teal-glow);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; margin-bottom: 18px;
+  }
+  .step-card h3 { font-size: 1.05rem; margin-bottom: 10px; color: var(--navy); }
+  .step-card p { font-size: 0.88rem; color: var(--gray-500); line-height: 1.65; }
+
+  /* ── BENEFITS ── */
+  .benefits-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 28px; margin-top: 56px; max-width: 1100px; margin: 56px auto 0;
+  }
+  .benefit-card {
+    padding: 36px 30px; border-radius: var(--radius);
+    border: 1.5px solid var(--gray-100);
+    transition: all 0.28s;
+    position: relative; overflow: hidden;
+  }
+  .benefit-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--teal), transparent);
+    opacity: 0; transition: opacity 0.28s;
+  }
+  .benefit-card:hover { border-color: rgba(14,165,160,0.3); transform: translateY(-4px); box-shadow: var(--shadow-md); }
+  .benefit-card:hover::before { opacity: 1; }
+  .benefit-icon { font-size: 2rem; margin-bottom: 18px; }
+  .benefit-card h3 { font-size: 1.1rem; margin-bottom: 10px; }
+  .benefit-card p { font-size: 0.88rem; color: var(--gray-500); line-height: 1.65; }
+
+  /* ── FEATURES PAGE ── */
+  .features-hero {
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-mid) 100%);
+    padding: 140px 5% 80px; text-align: center; color: #fff;
+    position: relative; overflow: hidden;
+  }
+  .features-hero::before {
+    content: '';
+    position: absolute; top: -50%; left: 50%; transform: translateX(-50%);
+    width: 800px; height: 800px;
+    background: radial-gradient(circle, rgba(14,165,160,0.15) 0%, transparent 60%);
+    border-radius: 50%;
+  }
+  .features-hero h1 { color: #fff; font-size: clamp(2rem, 4vw, 3.2rem); margin-bottom: 18px; position: relative; }
+  .features-hero p { color: rgba(255,255,255,0.7); font-size: 1.1rem; max-width: 560px; margin: 0 auto; position: relative; }
+
+  .feature-blocks { max-width: 1100px; margin: 0 auto; }
+  .feature-block {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 60px; align-items: center;
+    padding: 70px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .feature-block:last-child { border-bottom: none; }
+  .feature-block.reverse { direction: rtl; }
+  .feature-block.reverse > * { direction: ltr; }
+  .feature-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--teal); margin-bottom: 14px;
+  }
+  .feature-block h2 { font-size: 1.8rem; margin-bottom: 14px; }
+  .feature-block p { color: var(--gray-500); line-height: 1.75; margin-bottom: 20px; }
+  .feature-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .feature-list li {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.9rem; color: var(--gray-700);
+  }
+  .feature-list li::before {
+    content: '✓'; width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(14,165,160,0.12); color: var(--teal);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+  }
+  .feature-visual {
+    background: var(--off-white);
+    border-radius: 20px; padding: 32px;
+    border: 1.5px solid var(--gray-100);
+    min-height: 280px; display: flex; flex-direction: column;
+    gap: 14px; justify-content: center;
+  }
+  .feature-visual.dark {
+    background: var(--navy); border-color: transparent;
+  }
+  .fv-row {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border-radius: 10px; padding: 12px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .fv-row.dark-row {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .fv-icon { font-size: 1.2rem; }
+  .fv-text { flex: 1; }
+  .fv-title { font-size: 0.85rem; font-weight: 600; color: var(--navy); }
+  .fv-sub { font-size: 0.76rem; color: var(--gray-500); }
+  .fv-title.white { color: #fff; }
+  .fv-sub.white { color: rgba(255,255,255,0.5); }
+  .fv-badge {
+    padding: 4px 10px; border-radius: 50px;
+    font-size: 0.72rem; font-weight: 600;
+  }
+  .badge-done { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge-pending { background: rgba(245,158,11,0.15); color: var(--accent); }
+  .badge-sync { background: rgba(14,165,160,0.15); color: var(--teal); }
+
+  /* ── INTEGRATIONS ── */
+  .integrations-bar {
+    background: var(--off-white); padding: 60px 5%;
+    text-align: center;
+  }
+  .integrations-bar p { font-size: 0.85rem; color: var(--gray-500); margin-bottom: 28px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
+  .int-logos {
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 20px;
+  }
+  .int-logo {
+    background: #fff; border: 1.5px solid var(--gray-100);
+    border-radius: 12px; padding: 14px 24px;
+    font-size: 0.88rem; font-weight: 600; color: var(--gray-700);
+    display: flex; align-items: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .int-logo:hover { border-color: var(--teal); color: var(--teal); transform: translateY(-2px); }
+
+  /* ── PRICING PAGE ── */
+  .pricing-hero {
+    background: var(--off-white);
+    padding: 140px 5% 80px; text-align: center;
+  }
+  .pricing-hero h1 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 16px; }
+  .pricing-hero p { color: var(--gray-500); font-size: 1.05rem; max-width: 500px; margin: 0 auto; }
+
+  .pricing-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    margin: 30px 0 0;
+    font-size: 0.9rem; color: var(--gray-700);
+  }
+  .toggle {
+    width: 48px; height: 26px; background: var(--teal);
+    border-radius: 50px; position: relative; cursor: pointer;
+  }
+  .toggle::after {
+    content: ''; position: absolute;
+    top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; transition: transform 0.25s;
+  }
+  .save-badge {
+    background: rgba(14,165,160,0.12); color: var(--teal);
+    padding: 2px 10px; border-radius: 50px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+
+  .pricing-cards {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 24px; max-width: 1000px; margin: 0 auto;
+    padding: 60px 5%;
+  }
+  .pricing-card {
+    border-radius: 20px; padding: 36px 30px;
+    border: 1.5px solid var(--gray-100);
+    position: relative; transition: all 0.28s;
+  }
+  .pricing-card:hover { box-shadow: var(--shadow-md); }
+  .pricing-card.popular {
+    border-color: var(--teal);
+    background: linear-gradient(160deg, rgba(14,165,160,0.03) 0%, #fff 100%);
+  }
+  .popular-badge {
+    position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, var(--teal), #0B8A86);
+    color: #fff; padding: 5px 18px; border-radius: 50px;
+    font-size: 0.75rem; font-weight: 700; white-space: nowrap;
+  }
+  .plan-name { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--teal); margin-bottom: 12px; }
+  .plan-price {
+    font-family: 'Sora', sans-serif; font-weight: 800;
+    font-size: 2.8rem; color: var(--navy); margin-bottom: 4px; line-height: 1;
+  }
+  .plan-price span { font-size: 1rem; font-weight: 500; color: var(--gray-500); }
+  .plan-desc { font-size: 0.85rem; color: var(--gray-500); margin-bottom: 28px; }
+  .plan-divider { height: 1px; background: var(--gray-100); margin: 24px 0; }
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .plan-features li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 0.88rem; color: var(--gray-700);
+  }
+  .plan-features li .chk {
+    color: var(--teal); font-weight: 700; flex-shrink: 0;
+  }
+  .plan-features li .no {
+    color: var(--gray-300); flex-shrink: 0;
+  }
+  .plan-btn { width: 100%; text-align: center; padding: 13px; }
+
+  .compare-section { padding: 20px 5% 80px; max-width: 1000px; margin: 0 auto; }
+  .compare-section h3 { font-size: 1.2rem; margin-bottom: 24px; text-align: center; color: var(--gray-700); }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .compare-table th, .compare-table td { padding: 14px 18px; text-align: center; border-bottom: 1px solid var(--gray-100); }
+  .compare-table th { font-family: 'Sora', sans-serif; font-size: 0.85rem; color: var(--gray-500); font-weight: 600; }
+  .compare-table td:first-child { text-align: left; color: var(--gray-700); font-weight: 500; }
+  .compare-table tr:hover td { background: var(--off-white); }
+  .compare-table .teal { color: var(--teal); font-weight: 700; }
+
+  /* ── DASHBOARD PAGE ── */
+  .dashboard-page { padding: 100px 5% 60px; background: var(--off-white); min-height: 100vh; }
+  .dash-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+  .dash-top h1 { font-size: 1.6rem; }
+  .dash-top p { color: var(--gray-500); font-size: 0.9rem; }
+
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 24px;
+    max-width: 1100px; margin: 0 auto;
+  }
+
+  .dash-panel {
+    background: #fff; border-radius: var(--radius);
+    padding: 28px; box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(11,31,58,0.05);
+  }
+  .dash-panel h3 { font-size: 1rem; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .dash-panel h3 .count {
+    background: var(--teal-glow); color: var(--teal);
+    padding: 2px 10px; border-radius: 50px; font-size: 0.78rem;
+  }
+
+  .add-task-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, var(--teal), #0B8A86);
+    color: #fff; border: none; padding: 9px 18px;
+    border-radius: 9px; font-family: 'Sora', sans-serif;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    transition: all 0.22s;
+  }
+  .add-task-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(14,165,160,0.35); }
+
+  .task-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 0; border-bottom: 1px solid var(--gray-100);
+    transition: background 0.15s;
+  }
+  .task-row:last-child { border-bottom: none; }
+  .task-row:hover { background: var(--off-white); margin: 0 -28px; padding: 14px 28px; border-radius: 8px; }
+  .task-check {
+    width: 22px; height: 22px; border-radius: 6px;
+    border: 2px solid var(--gray-300); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .task-check.done { background: var(--green); border-color: var(--green); color: #fff; font-size: 0.75rem; }
+  .task-info { flex: 1; }
+  .task-info strong { display: block; font-size: 0.9rem; font-weight: 500; }
+  .task-info small { font-size: 0.78rem; color: var(--gray-500); }
+  .task-priority {
+    padding: 3px 10px; border-radius: 50px;
+    font-size: 0.72rem; font-weight: 600;
+  }
+  .p-high { background: rgba(239,68,68,0.1); color: var(--red); }
+  .p-med { background: rgba(245,158,11,0.1); color: var(--accent); }
+  .p-low { background: rgba(16,185,129,0.1); color: var(--green); }
+
+  .notif-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--gray-100);
+  }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    margin-top: 6px; flex-shrink: 0;
+  }
+  .notif-item strong { font-size: 0.85rem; display: block; }
+  .notif-item small { font-size: 0.76rem; color: var(--gray-500); }
+
+  .account-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 10px;
+    border: 1.5px solid var(--gray-100); margin-bottom: 10px;
+    transition: all 0.2s; cursor: pointer;
+  }
+  .account-item:hover { border-color: var(--teal); }
+  .account-icon { font-size: 1.3rem; }
+  .account-info { flex: 1; }
+  .account-info strong { font-size: 0.85rem; display: block; }
+  .account-info small { font-size: 0.76rem; color: var(--gray-500); }
+  .account-status {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--green);
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 18px; margin-bottom: 24px; max-width: 1100px; margin: 0 auto 24px;
+  }
+  .stat-chip {
+    background: #fff; border-radius: 12px; padding: 20px;
+    box-shadow: var(--shadow-sm); border: 1px solid rgba(11,31,58,0.05);
+  }
+  .stat-chip .label { font-size: 0.78rem; color: var(--gray-500); margin-bottom: 6px; }
+  .stat-chip .val { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 1.8rem; color: var(--navy); }
+  .stat-chip .change { font-size: 0.75rem; color: var(--green); font-weight: 600; }
+
+  /* ── ABOUT PAGE ── */
+  .about-hero {
+    background: linear-gradient(160deg, var(--navy) 0%, #1a3d6a 100%);
+    padding: 140px 5% 80px; position: relative; overflow: hidden;
+  }
+  .about-hero::before {
+    content: '';
+    position: absolute; top: -200px; right: -200px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(14,165,160,0.2) 0%, transparent 60%);
+    border-radius: 50%;
+  }
+  .about-hero h1 { color: #fff; font-size: clamp(2rem, 4vw, 3.2rem); margin-bottom: 18px; position: relative; max-width: 700px; }
+  .about-hero p { color: rgba(255,255,255,0.7); font-size: 1.1rem; max-width: 600px; line-height: 1.75; position: relative; }
+
+  .mission-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 60px; align-items: center;
+    max-width: 1100px; margin: 0 auto;
+  }
+  .mission-text h2 { font-size: 2rem; margin-bottom: 18px; }
+  .mission-text p { color: var(--gray-500); line-height: 1.8; margin-bottom: 18px; }
+  .mission-visual {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .mission-stat-card {
+    background: var(--off-white); border-radius: 14px;
+    padding: 24px; text-align: center;
+  }
+  .mission-stat-card strong {
+    display: block; font-family: 'Sora', sans-serif;
+    font-size: 2rem; font-weight: 800; color: var(--teal);
+  }
+  .mission-stat-card span { font-size: 0.82rem; color: var(--gray-500); }
+
+  .model-cards {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 24px; max-width: 900px; margin: 56px auto 0;
+  }
+  .model-card {
+    border-radius: var(--radius); padding: 36px 30px;
+    border: 1.5px solid var(--gray-100);
+  }
+  .model-card.ai { border-color: rgba(14,165,160,0.3); background: rgba(14,165,160,0.03); }
+  .model-card.human { border-color: rgba(11,31,58,0.15); background: rgba(11,31,58,0.02); }
+  .model-card h3 { font-size: 1.2rem; margin-bottom: 14px; }
+  .model-card p { font-size: 0.88rem; color: var(--gray-500); line-height: 1.7; }
+
+  /* ── TEAM ── */
+  .team-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 24px; max-width: 900px; margin: 56px auto 0;
+  }
+  .team-card {
+    border-radius: var(--radius); padding: 28px;
+    border: 1.5px solid var(--gray-100); text-align: center;
+    transition: all 0.28s;
+  }
+  .team-card:hover { box-shadow: var(--shadow-md); transform: translateY(-4px); }
+  .team-avatar {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; margin: 0 auto 14px;
+  }
+  .team-card h4 { font-size: 1rem; margin-bottom: 4px; }
+  .team-card p { font-size: 0.82rem; color: var(--teal); font-weight: 600; margin-bottom: 10px; }
+  .team-card small { font-size: 0.8rem; color: var(--gray-500); }
+
+  /* ── CONTACT PAGE ── */
+  .contact-page { padding: 100px 5% 80px; }
+  .contact-grid {
+    display: grid; grid-template-columns: 1fr 1.4fr;
+    gap: 60px; max-width: 1000px; margin: 0 auto;
+    align-items: start;
+  }
+  .contact-info h2 { font-size: 2rem; margin-bottom: 16px; }
+  .contact-info p { color: var(--gray-500); line-height: 1.75; margin-bottom: 36px; }
+  .contact-method {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 18px;
+  }
+  .contact-method-icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    background: var(--teal-glow); display: flex; align-items: center;
+    justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+  }
+  .contact-method strong { display: block; font-size: 0.88rem; margin-bottom: 2px; }
+  .contact-method span { font-size: 0.82rem; color: var(--gray-500); }
+
+  .contact-form {
+    background: var(--off-white); border-radius: 20px;
+    padding: 40px; border: 1.5px solid var(--gray-100);
+  }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-size: 0.83rem; font-weight: 600; color: var(--navy); margin-bottom: 7px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 12px 16px; border-radius: 10px;
+    border: 1.5px solid var(--gray-300); font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem; background: #fff; color: var(--navy);
+    transition: border-color 0.2s; outline: none;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(14,165,160,0.12);
+  }
+  .form-group textarea { height: 130px; resize: vertical; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── CTA BANNER ── */
+  .cta-banner {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+    padding: 90px 5%; text-align: center; position: relative; overflow: hidden;
+  }
+  .cta-banner::before {
+    content: '';
+    position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(14,165,160,0.2) 0%, transparent 60%);
+    border-radius: 50%;
+  }
+  .cta-banner h2 { color: #fff; font-size: clamp(1.8rem, 3.5vw, 2.8rem); margin-bottom: 14px; position: relative; }
+  .cta-banner p { color: rgba(255,255,255,0.65); margin-bottom: 36px; font-size: 1.05rem; position: relative; }
+  .cta-banner .cta-btns { display: flex; gap: 14px; justify-content: center; position: relative; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--navy); color: rgba(255,255,255,0.6);
+    padding: 60px 5% 30px;
+  }
+  .footer-inner {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 40px; margin-bottom: 48px;
+  }
+  .footer-brand .logo { color: #fff; margin-bottom: 14px; }
+  .footer-brand p { font-size: 0.85rem; line-height: 1.7; max-width: 260px; }
+  .footer-col h4 { color: #fff; font-size: 0.85rem; font-weight: 600; margin-bottom: 16px; }
+  .footer-col a { display: block; font-size: 0.82rem; margin-bottom: 10px; color: rgba(255,255,255,0.55); text-decoration: none; cursor: pointer; transition: color 0.2s; }
+  .footer-col a:hover { color: var(--teal); }
+  .footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 24px; display: flex; justify-content: space-between;
+    align-items: center; font-size: 0.8rem;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeSlideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .hero-inner, .mission-grid, .contact-grid { grid-template-columns: 1fr; }
+    .hero-visual { display: none; }
+    .benefits-grid, .pricing-cards { grid-template-columns: 1fr 1fr; }
+    .feature-block { grid-template-columns: 1fr; }
+    .feature-block.reverse { direction: ltr; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+    .dash-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .team-grid { grid-template-columns: 1fr 1fr; }
+    .model-cards { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .nav-links { display: none; }
+    .benefits-grid, .pricing-cards, .stats-row { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .team-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="navbar">
+  <div class="logo" onclick="showPage('home')">
+    <div class="logo-icon">⚡</div>
+    LifeOps Pro
+  </div>
+  <ul class="nav-links">
+    <li><a onclick="showPage('home')">Home</a></li>
+    <li><a onclick="showPage('features')">Features</a></li>
+    <li><a onclick="showPage('pricing')">Pricing</a></li>
+    <li><a onclick="showPage('dashboard')">Dashboard</a></li>
+    <li><a onclick="showPage('about')">About</a></li>
+    <li><a onclick="showPage('contact')">Contact</a></li>
+  </ul>
+  <div class="nav-cta">
+    <button class="btn btn-outline" onclick="showPage('contact')">Log In</button>
+    <button class="btn btn-primary" onclick="showPage('pricing')">Get Started</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════ HOME PAGE ═══════════════════ -->
+<div id="page-home" class="page active">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="hero-badge">
+          <div class="badge-dot"></div>
+          AI + Human Concierge Service
+        </div>
+        <h1 class="hero-title">We handle your life admin so you can <span>focus on what matters</span></h1>
+        <p class="hero-sub">LifeOps Pro combines intelligent automation with real human support to manage your scheduling, bills, emails, and everyday tasks — so you don't have to.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary btn-lg" onclick="showPage('pricing')">Get Started Free</button>
+          <button class="btn btn-outline btn-lg" onclick="showPage('features')">See How It Works</button>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><strong>12h+</strong><span>Saved weekly</span></div>
+          <div class="hero-stat"><strong>98%</strong><span>Task completion</span></div>
+          <div class="hero-stat"><strong>5,000+</strong><span>Members served</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="dashboard-card">
+          <div class="dash-header">
+            <span class="dash-title">📋 My Tasks Today</span>
+            <span class="dash-date">Wednesday, Mar 18</span>
+          </div>
+          <div class="task-item">
+            <div class="task-status status-done"></div>
+            <span class="task-name">Schedule dentist appointment</span>
+            <span class="task-tag tag-human">Human</span>
+          </div>
+          <div class="task-item">
+            <div class="task-status status-progress"></div>
+            <span class="task-name">Sort & label 47 unread emails</span>
+            <span class="task-tag tag-ai">AI</span>
+          </div>
+          <div class="task-item">
+            <div class="task-status status-pending"></div>
+            <span class="task-name">Follow up with internet provider</span>
+            <span class="task-tag tag-human">Human</span>
+          </div>
+          <div class="task-item">
+            <div class="task-status status-done"></div>
+            <span class="task-name">Set bill reminders for April</span>
+            <span class="task-tag tag-ai">AI</span>
+          </div>
+          <div class="task-item">
+            <div class="task-status status-progress"></div>
+            <span class="task-name">Book team lunch reservation</span>
+            <span class="task-tag tag-human">Human</span>
+          </div>
+        </div>
+        <div class="mini-card mini-card-1">
+          <div class="mini-label">Tasks Completed</div>
+          <div class="mini-val">24 / 26</div>
+          <div class="mini-sub">↑ +8% this week</div>
+        </div>
+        <div class="mini-card mini-card-2">
+          <div class="mini-label">Time Saved</div>
+          <div class="mini-val">11.5 hrs</div>
+          <div class="mini-sub">This month 🎉</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-works">
+    <div class="text-center" style="max-width:600px;margin:0 auto 0;">
+      <div class="section-label">✦ How It Works</div>
+      <h2 class="section-title">Smart automation. Real human backup.</h2>
+      <p class="section-sub">A seamless blend of AI efficiency and human judgment that handles everything from routine reminders to complex vendor negotiations.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">01</div>
+        <div class="step-icon">📝</div>
+        <h3>Tell Us What You Need</h3>
+        <p>Submit tasks via our app, email, or WhatsApp. No forms, no friction — just describe what you need done.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">02</div>
+        <div class="step-icon">🤖</div>
+        <h3>AI Triages & Acts</h3>
+        <p>Our AI instantly categorizes your task, handles anything automatable, and flags complex items for your concierge.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">03</div>
+        <div class="step-icon">👤</div>
+        <h3>Human Concierge Steps In</h3>
+        <p>For tasks requiring calls, negotiations, or judgment, a real person takes over and keeps you updated.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">04</div>
+        <div class="step-icon">✅</div>
+        <h3>Done. You Didn't Lift a Finger.</h3>
+        <p>Receive a notification when your task is complete. Review, approve, and move on with your life.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section>
+    <div class="text-center" style="max-width:600px;margin:0 auto 0;">
+      <div class="section-label">✦ Why LifeOps Pro</div>
+      <h2 class="section-title">Give your time back to yourself</h2>
+      <p class="section-sub">Stop drowning in the mundane. Start living with intention.</p>
+    </div>
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="benefit-icon">⏳</div>
+        <h3>Reclaim 10+ Hours Weekly</h3>
+        <p>Our members save an average of 12 hours every week that would otherwise be spent on admin, hold music, and follow-ups.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🧘</div>
+        <h3>Reduce Mental Overhead</h3>
+        <p>Stop keeping track of appointments, deadlines, and vendor calls in your head. We remember everything for you.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🎯</div>
+        <h3>100% Task Accountability</h3>
+        <p>Every task gets a status, a deadline, and an owner. Nothing slips through the cracks — guaranteed.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🌍</div>
+        <h3>Multilingual Support</h3>
+        <p>Our team speaks your language. Especially helpful for newcomers navigating unfamiliar systems and services.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🔒</div>
+        <h3>Bank-Level Privacy</h3>
+        <p>Your information is encrypted and never shared. You decide exactly what access we have — nothing more.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📊</div>
+        <h3>Full Transparency</h3>
+        <p>See every action taken on your behalf in real time. Your dashboard shows live status on every task.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO IS IT FOR -->
+  <section style="background:var(--off-white);">
+    <div class="text-center" style="max-width:600px;margin:0 auto 56px;">
+      <div class="section-label">✦ Who It's For</div>
+      <h2 class="section-title">Built for people who are simply too busy</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;max-width:1000px;margin:0 auto;">
+      <div style="background:#fff;border-radius:16px;padding:32px 24px;text-align:center;box-shadow:var(--shadow-sm);border:1px solid rgba(11,31,58,0.05);">
+        <div style="font-size:2.2rem;margin-bottom:14px;">👩‍💼</div>
+        <h3 style="font-size:1rem;margin-bottom:8px;">Busy Professionals</h3>
+        <p style="font-size:0.83rem;color:var(--gray-500);">Executives and career-focused individuals who need their life run efficiently.</p>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:32px 24px;text-align:center;box-shadow:var(--shadow-sm);border:1px solid rgba(11,31,58,0.05);">
+        <div style="font-size:2.2rem;margin-bottom:14px;">🏢</div>
+        <h3 style="font-size:1rem;margin-bottom:8px;">Small Business Owners</h3>
+        <p style="font-size:0.83rem;color:var(--gray-500);">Entrepreneurs who need admin support without hiring a full-time assistant.</p>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:32px 24px;text-align:center;box-shadow:var(--shadow-sm);border:1px solid rgba(11,31,58,0.05);">
+        <div style="font-size:2.2rem;margin-bottom:14px;">✈️</div>
+        <h3 style="font-size:1rem;margin-bottom:8px;">Newcomers & Immigrants</h3>
+        <p style="font-size:0.83rem;color:var(--gray-500);">People navigating new countries, systems, and services who need a knowledgeable partner.</p>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:32px 24px;text-align:center;box-shadow:var(--shadow-sm);border:1px solid rgba(11,31,58,0.05);">
+        <div style="font-size:2.2rem;margin-bottom:14px;">👨‍👩‍👧</div>
+        <h3 style="font-size:1rem;margin-bottom:8px;">Parents</h3>
+        <p style="font-size:0.83rem;color:var(--gray-500);">Families juggling school schedules, appointments, and household logistics.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA BANNER -->
+  <div class="cta-banner">
+    <h2>Ready to reclaim your time?</h2>
+    <p>Join 5,000+ members who've handed off their life admin to LifeOps Pro.</p>
+    <div class="cta-btns">
+      <button class="btn btn-white btn-lg" onclick="showPage('pricing')">Try Free for 14 Days</button>
+      <button class="btn btn-lg" style="background:rgba(255,255,255,0.1);color:#fff;border:1.5px solid rgba(255,255,255,0.25);" onclick="showPage('features')">Learn More</button>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="logo"><div class="logo-icon">⚡</div> LifeOps Pro</div>
+        <p>AI-powered life admin for busy people. Let us handle the mundane while you focus on what matters.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a onclick="showPage('features')">Features</a>
+        <a onclick="showPage('pricing')">Pricing</a>
+        <a onclick="showPage('dashboard')">Dashboard</a>
+        <a>Integrations</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a onclick="showPage('about')">About Us</a>
+        <a onclick="showPage('contact')">Contact</a>
+        <a>Blog</a>
+        <a>Careers</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a>Privacy Policy</a>
+        <a>Terms of Service</a>
+        <a>Security</a>
+        <a>GDPR</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 LifeOps Pro. All rights reserved.</span>
+      <span>Made with ❤️ for busy people everywhere</span>
+    </div>
+  </footer>
+</div>
+
+<!-- ═══════════════════ FEATURES PAGE ═══════════════════ -->
+<div id="page-features" class="page">
+  <div class="features-hero">
+    <div class="section-label" style="background:rgba(14,165,160,0.15);margin-bottom:18px;">✦ Platform Features</div>
+    <h1>Everything you need, handled automatically</h1>
+    <p>From inbox zero to appointment booking — LifeOps Pro's features work around the clock so you don't have to.</p>
+  </div>
+
+  <!-- INTEGRATIONS BAR -->
+  <div class="integrations-bar">
+    <p>Seamlessly integrates with your tools</p>
+    <div class="int-logos">
+      <div class="int-logo">📧 Gmail</div>
+      <div class="int-logo">📨 Outlook</div>
+      <div class="int-logo">📅 Google Calendar</div>
+      <div class="int-logo">📱 iCloud</div>
+      <div class="int-logo">💬 WhatsApp</div>
+      <div class="int-logo">🗒️ Notion</div>
+      <div class="int-logo">📞 Zoom</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="feature-blocks">
+
+      <!-- BLOCK 1: TASK AUTOMATION -->
+      <div class="feature-block">
+        <div>
+          <div class="feature-label">🤖 AI Automation</div>
+          <h2>Task automation that never sleeps</h2>
+          <p>Our AI engine reads, sorts, and acts on your emails, sets smart reminders, and builds your schedule — all without you lifting a finger.</p>
+          <ul class="feature-list">
+            <li>Email parsing & auto-labelling</li>
+            <li>Smart scheduling with conflict detection</li>
+            <li>Bill due-date tracking & reminders</li>
+            <li>Follow-up nudges sent on your behalf</li>
+            <li>Priority inbox management</li>
+          </ul>
+        </div>
+        <div class="feature-visual">
+          <div class="fv-row">
+            <div class="fv-icon">📧</div>
+            <div class="fv-text">
+              <div class="fv-title">Invoice from Bell Canada parsed</div>
+              <div class="fv-sub">Due Apr 2 · $89.50 · Added to tracker</div>
+            </div>
+            <span class="fv-badge badge-done">Done</span>
+          </div>
+          <div class="fv-row">
+            <div class="fv-icon">📅</div>
+            <div class="fv-text">
+              <div class="fv-title">Meeting request detected</div>
+              <div class="fv-sub">Tue 3pm blocked · Invite sent to team</div>
+            </div>
+            <span class="fv-badge badge-done">Done</span>
+          </div>
+          <div class="fv-row">
+            <div class="fv-icon">🔔</div>
+            <div class="fv-text">
+              <div class="fv-title">Reminder: Hydro bill due in 3 days</div>
+              <div class="fv-sub">Auto-reminder set for Mar 20</div>
+            </div>
+            <span class="fv-badge badge-pending">Pending</span>
+          </div>
+          <div class="fv-row">
+            <div class="fv-icon">🗂️</div>
+            <div class="fv-text">
+              <div class="fv-title">47 emails sorted & labelled</div>
+              <div class="fv-sub">15 actionable · 32 archived</div>
+            </div>
+            <span class="fv-badge badge-done">Done</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCK 2: HUMAN CONCIERGE -->
+      <div class="feature-block reverse">
+        <div>
+          <div class="feature-label">👤 Human Concierge</div>
+          <h2>Real people for complex tasks</h2>
+          <p>When a task needs a human voice — a negotiation, a booking call, a vendor complaint — your dedicated concierge takes over with a full brief on the situation.</p>
+          <ul class="feature-list">
+            <li>Phone calls made on your behalf</li>
+            <li>Vendor follow-ups and dispute resolution</li>
+            <li>Appointment booking & confirmation</li>
+            <li>Research and comparison shopping</li>
+            <li>Document requests and form filing</li>
+          </ul>
+        </div>
+        <div class="feature-visual dark">
+          <div class="fv-row dark-row">
+            <div class="fv-icon">📞</div>
+            <div class="fv-text">
+              <div class="fv-title white">Called Rogers re: overcharge</div>
+              <div class="fv-sub white">Resolved · $45 credit applied</div>
+            </div>
+            <span class="fv-badge badge-done">Resolved</span>
+          </div>
+          <div class="fv-row dark-row">
+            <div class="fv-icon">🏥</div>
+            <div class="fv-text">
+              <div class="fv-title white">Booked GP appointment</div>
+              <div class="fv-sub white">Apr 7 · 10:30am · Dr. Patel confirmed</div>
+            </div>
+            <span class="fv-badge badge-done">Booked</span>
+          </div>
+          <div class="fv-row dark-row">
+            <div class="fv-icon">🛠️</div>
+            <div class="fv-text">
+              <div class="fv-title white">Plumber quotes — 3 obtained</div>
+              <div class="fv-sub white">Summary sent to your inbox</div>
+            </div>
+            <span class="fv-badge badge-sync">In Review</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCK 3: DASHBOARD -->
+      <div class="feature-block">
+        <div>
+          <div class="feature-label">📊 Dashboard</div>
+          <h2>Your command center for life admin</h2>
+          <p>A clean, real-time dashboard gives you a bird's-eye view of all your tasks, deadlines, connected accounts, and notifications in one place.</p>
+          <ul class="feature-list">
+            <li>Live task status tracking</li>
+            <li>Deadline calendar view</li>
+            <li>Connected accounts at a glance</li>
+            <li>AI + human task routing transparency</li>
+            <li>Weekly time-saved summary</li>
+          </ul>
+        </div>
+        <div class="feature-visual" style="padding:20px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="background:linear-gradient(135deg,var(--teal),#0B8A86);border-radius:12px;padding:16px;color:#fff;">
+              <div style="font-size:0.75rem;opacity:0.8;margin-bottom:4px;">Tasks This Week</div>
+              <div style="font-family:'Sora',sans-serif;font-size:1.8rem;font-weight:800;">24</div>
+              <div style="font-size:0.72rem;opacity:0.7;">↑ +3 from last week</div>
+            </div>
+            <div style="background:var(--navy);border-radius:12px;padding:16px;color:#fff;">
+              <div style="font-size:0.75rem;opacity:0.8;margin-bottom:4px;">Hours Saved</div>
+              <div style="font-family:'Sora',sans-serif;font-size:1.8rem;font-weight:800;">11.5</div>
+              <div style="font-size:0.72rem;opacity:0.7;">This month</div>
+            </div>
+          </div>
+          <div class="fv-row"><div class="fv-icon">📋</div><div class="fv-text"><div class="fv-title">Active Tasks</div><div class="fv-sub">6 in progress · 2 pending approval</div></div></div>
+          <div class="fv-row"><div class="fv-icon">🔔</div><div class="fv-text"><div class="fv-title">3 Notifications</div><div class="fv-sub">2 completed · 1 needs your input</div></div></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CTA BANNER -->
+  <div class="cta-banner">
+    <h2>Start delegating today</h2>
+    <p>Your first 14 days are completely free. No credit card required.</p>
+    <div class="cta-btns">
+      <button class="btn btn-white btn-lg" onclick="showPage('pricing')">See Pricing Plans</button>
+      <button class="btn btn-lg" style="background:rgba(255,255,255,0.1);color:#fff;border:1.5px solid rgba(255,255,255,0.25);" onclick="showPage('contact')">Talk to Us</button>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand"><div class="logo"><div class="logo-icon">⚡</div> LifeOps Pro</div><p>AI-powered life admin for busy people.</p></div>
+      <div class="footer-col"><h4>Product</h4><a onclick="showPage('features')">Features</a><a onclick="showPage('pricing')">Pricing</a><a onclick="showPage('dashboard')">Dashboard</a></div>
+      <div class="footer-col"><h4>Company</h4><a onclick="showPage('about')">About</a><a onclick="showPage('contact')">Contact</a></div>
+      <div class="footer-col"><h4>Legal</h4><a>Privacy</a><a>Terms</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 LifeOps Pro. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<!-- ═══════════════════ PRICING PAGE ═══════════════════ -->
+<div id="page-pricing" class="page">
+  <div class="pricing-hero">
+    <div class="section-label">✦ Pricing</div>
+    <h1>Simple, transparent pricing</h1>
+    <p>Pick the plan that fits your life. Upgrade, downgrade, or cancel anytime.</p>
+    <div class="pricing-toggle">
+      Monthly <div class="toggle"></div> Annual <span class="save-badge">Save 20%</span>
+    </div>
+  </div>
+
+  <div class="pricing-cards">
+    <!-- BASIC -->
+    <div class="pricing-card">
+      <div class="plan-name">Basic</div>
+      <div class="plan-price">$29<span>/mo</span></div>
+      <div class="plan-desc">Perfect for individuals who need light AI assistance.</div>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li><span class="chk">✓</span> Up to 15 tasks/month</li>
+        <li><span class="chk">✓</span> AI task automation</li>
+        <li><span class="chk">✓</span> Email & calendar integration</li>
+        <li><span class="chk">✓</span> Bill reminders</li>
+        <li><span class="chk">✓</span> Dashboard access</li>
+        <li><span class="no">✗</span> Human concierge support</li>
+        <li><span class="no">✗</span> Phone calls on your behalf</li>
+        <li><span class="no">✗</span> Priority support</li>
+      </ul>
+      <button class="btn btn-outline plan-btn" onclick="showPage('contact')">Get Started</button>
+    </div>
+
+    <!-- STANDARD (POPULAR) -->
+    <div class="pricing-card popular">
+      <div class="popular-badge">⭐ Most Popular</div>
+      <div class="plan-name">Standard</div>
+      <div class="plan-price">$69<span>/mo</span></div>
+      <div class="plan-desc">The full experience — AI plus a dedicated concierge.</div>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li><span class="chk">✓</span> Up to 40 tasks/month</li>
+        <li><span class="chk">✓</span> All AI automations</li>
+        <li><span class="chk">✓</span> All integrations</li>
+        <li><span class="chk">✓</span> 5 hrs human concierge/month</li>
+        <li><span class="chk">✓</span> Phone calls on your behalf</li>
+        <li><span class="chk">✓</span> Vendor follow-ups</li>
+        <li><span class="chk">✓</span> Priority support (12h response)</li>
+        <li><span class="no">✗</span> Dedicated account manager</li>
+      </ul>
+      <button class="btn btn-primary plan-btn" onclick="showPage('contact')">Start Free Trial</button>
+    </div>
+
+    <!-- PREMIUM -->
+    <div class="pricing-card">
+      <div class="plan-name">Premium</div>
+      <div class="plan-price">$149<span>/mo</span></div>
+      <div class="plan-desc">Full-service life management for power users and small businesses.</div>
+      <div class="plan-divider"></div>
+      <ul class="plan-features">
+        <li><span class="chk">✓</span> Unlimited tasks</li>
+        <li><span class="chk">✓</span> All AI automations</li>
+        <li><span class="chk">✓</span> All integrations + API access</li>
+        <li><span class="chk">✓</span> 15 hrs human concierge/month</li>
+        <li><span class="chk">✓</span> Dedicated account manager</li>
+        <li><span class="chk">✓</span> Business task support</li>
+        <li><span class="chk">✓</span> 4-hour priority response</li>
+        <li><span class="chk">✓</span> Onboarding & setup call</li>
+      </ul>
+      <button class="btn btn-outline plan-btn" onclick="showPage('contact')">Contact Sales</button>
+    </div>
+  </div>
+
+  <!-- COMPARISON TABLE -->
+  <div class="compare-section">
+    <h3>Full Feature Comparison</h3>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Feature</th>
+          <th>Basic</th>
+          <th>Standard</th>
+          <th>Premium</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Monthly tasks</td><td>15</td><td>40</td><td class="teal">Unlimited</td></tr>
+        <tr><td>AI email automation</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        <tr><td>Calendar integration</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        <tr><td>Bill reminders</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        <tr><td>Human concierge hours</td><td>—</td><td>5 hrs</td><td class="teal">15 hrs</td></tr>
+        <tr><td>Phone calls on your behalf</td><td>—</td><td>✓</td><td>✓</td></tr>
+        <tr><td>Vendor negotiations</td><td>—</td><td>✓</td><td>✓</td></tr>
+        <tr><td>Dedicated account manager</td><td>—</td><td>—</td><td class="teal">✓</td></tr>
+        <tr><td>API access</td><td>—</td><td>—</td><td class="teal">✓</td></tr>
+        <tr><td>Support response time</td><td>48h</td><td>12h</td><td class="teal">4h</td></tr>
+        <tr><td>Onboarding call</td><td>—</td><td>—</td><td class="teal">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-banner">
+    <h2>Not sure which plan?</h2>
+    <p>Start free for 14 days on any plan. Our team will help you find the right fit.</p>
+    <div class="cta-btns">
+      <button class="btn btn-white btn-lg" onclick="showPage('contact')">Talk to Our Team</button>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand"><div class="logo"><div class="logo-icon">⚡</div> LifeOps Pro</div><p>AI-powered life admin for busy people.</p></div>
+      <div class="footer-col"><h4>Product</h4><a onclick="showPage('features')">Features</a><a onclick="showPage('pricing')">Pricing</a></div>
+      <div class="footer-col"><h4>Company</h4><a onclick="showPage('about')">About</a><a onclick="showPage('contact')">Contact</a></div>
+      <div class="footer-col"><h4>Legal</h4><a>Privacy</a><a>Terms</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 LifeOps Pro. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<!-- ═══════════════════ DASHBOARD PAGE ═══════════════════ -->
+<div id="page-dashboard" class="page">
+  <div class="dashboard-page">
+    <div style="max-width:1100px;margin:0 auto;">
+      <div class="dash-top">
+        <div>
+          <h1>Good morning, Alex 👋</h1>
+          <p>Wednesday, March 18 · Here's your life admin overview</p>
+        </div>
+        <button class="add-task-btn" onclick="addTask()">
+          + Add Task
+        </button>
+      </div>
+
+      <!-- STATS ROW -->
+      <div class="stats-row">
+        <div class="stat-chip">
+          <div class="label">Active Tasks</div>
+          <div class="val">8</div>
+          <div class="change">4 due today</div>
+        </div>
+        <div class="stat-chip">
+          <div class="label">Completed This Week</div>
+          <div class="val">17</div>
+          <div class="change">↑ +5 vs last week</div>
+        </div>
+        <div class="stat-chip">
+          <div class="label">Hours Saved</div>
+          <div class="val">11.5</div>
+          <div class="change">This month</div>
+        </div>
+        <div class="stat-chip">
+          <div class="label">Concierge Hours Left</div>
+          <div class="val">3.5h</div>
+          <div class="change" style="color:var(--accent);">of 5h plan</div>
+        </div>
+      </div>
+
+      <!-- MAIN GRID -->
+      <div class="dash-grid">
+        <!-- TASK LIST -->
+        <div class="dash-panel" style="grid-column:1;grid-row:1/3;">
+          <h3>My Tasks <span class="count">8 active</span></h3>
+
+          <div class="task-row">
+            <div class="task-check done">✓</div>
+            <div class="task-info"><strong>Sort 47 unread emails</strong><small>Completed · AI handled · 2h ago</small></div>
+            <span class="task-tag tag-ai" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(14,165,160,0.12);color:var(--teal);">AI</span>
+            <span class="task-priority p-low">Done</span>
+          </div>
+
+          <div class="task-row">
+            <div class="task-check"></div>
+            <div class="task-info"><strong>Call Rogers about billing error</strong><small>Due today · Concierge assigned</small></div>
+            <span class="task-tag tag-human" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(11,31,58,0.08);color:var(--navy-mid);">Human</span>
+            <span class="task-priority p-high">High</span>
+          </div>
+
+          <div class="task-row">
+            <div class="task-check"></div>
+            <div class="task-info"><strong>Set reminders for April bills</strong><small>In progress · AI automating</small></div>
+            <span class="task-tag tag-ai" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(14,165,160,0.12);color:var(--teal);">AI</span>
+            <span class="task-priority p-med">Medium</span>
+          </div>
+
+          <div class="task-row">
+            <div class="task-check"></div>
+            <div class="task-info"><strong>Book dentist appointment</strong><small>Due Mar 20 · Concierge calling clinic</small></div>
+            <span class="task-tag tag-human" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(11,31,58,0.08);color:var(--navy-mid);">Human</span>
+            <span class="task-priority p-med">Medium</span>
+          </div>
+
+          <div class="task-row">
+            <div class="task-check done">✓</div>
+            <div class="task-info"><strong>Research best internet providers</strong><small>Completed · 3 options compared · Report in inbox</small></div>
+            <span class="task-tag tag-human" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(11,31,58,0.08);color:var(--navy-mid);">Human</span>
+            <span class="task-priority p-low">Done</span>
+          </div>
+
+          <div class="task-row">
+            <div class="task-check"></div>
+            <div class="task-info"><strong>Organize team calendar for Q2</strong><small>Due Mar 22 · AI scheduling</small></div>
+            <span class="task-tag tag-ai" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(14,165,160,0.12);color:var(--teal);">AI</span>
+            <span class="task-priority p-low">Low</span>
+          </div>
+
+          <div class="task-row">
+            <div class="task-check"></div>
+            <div class="task-info"><strong>Follow up with contractor quote</strong><small>Awaiting response · Concierge on it</small></div>
+            <span class="task-tag tag-human" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(11,31,58,0.08);color:var(--navy-mid);">Human</span>
+            <span class="task-priority p-high">High</span>
+          </div>
+
+          <div class="task-row">
+            <div class="task-check"></div>
+            <div class="task-info"><strong>Renew parking permit online</strong><small>Due Mar 25 · Awaiting your approval</small></div>
+            <span class="task-tag tag-ai" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:rgba(14,165,160,0.12);color:var(--teal);">AI</span>
+            <span class="task-priority p-med">⚠ Needs you</span>
+          </div>
+
+          <div id="new-tasks-area"></div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          <!-- NOTIFICATIONS -->
+          <div class="dash-panel">
+            <h3>Notifications <span class="count">3 new</span></h3>
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--green);"></div>
+              <div><strong>Rogers dispute resolved!</strong><small>$45 credit applied to your account · 1h ago</small></div>
+            </div>
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--accent);"></div>
+              <div><strong>Parking permit needs approval</strong><small>Review & approve to proceed · 3h ago</small></div>
+            </div>
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--teal);"></div>
+              <div><strong>Dentist booking confirmed</strong><small>Apr 7 · 10:30am · Dr. Patel · 5h ago</small></div>
+            </div>
+          </div>
+
+          <!-- CONNECTED ACCOUNTS -->
+          <div class="dash-panel">
+            <h3>Connected Accounts</h3>
+            <div class="account-item">
+              <div class="account-icon">📧</div>
+              <div class="account-info"><strong>Gmail</strong><small>alex@gmail.com · Synced 2m ago</small></div>
+              <div class="account-status"></div>
+            </div>
+            <div class="account-item">
+              <div class="account-icon">📅</div>
+              <div class="account-info"><strong>Google Calendar</strong><small>Connected · Live sync active</small></div>
+              <div class="account-status"></div>
+            </div>
+            <div class="account-item">
+              <div class="account-icon">📨</div>
+              <div class="account-info"><strong>Outlook</strong><small>work@company.com · Connected</small></div>
+              <div class="account-status"></div>
+            </div>
+            <button class="btn btn-outline" style="width:100%;margin-top:10px;font-size:0.82rem;padding:9px;">+ Connect Account</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ ABOUT PAGE ═══════════════════ -->
+<div id="page-about" class="page">
+  <div class="about-hero">
+    <div class="section-label" style="background:rgba(14,165,160,0.2);color:var(--teal-light);margin-bottom:20px;">✦ Our Story</div>
+    <h1>We built the assistant we always wished we had</h1>
+    <p>LifeOps Pro was born from a simple frustration: life admin is crushing people's time, energy, and mental health — and existing tools weren't solving it.</p>
+  </div>
+
+  <section>
+    <div class="mission-grid">
+      <div class="mission-text">
+        <div class="section-label">✦ Our Mission</div>
+        <h2>Simplifying life admin for busy humans</h2>
+        <p>We believe your time is your most valuable asset. While others build productivity apps that still require you to do the work, we built a service that actually does it for you.</p>
+        <p>Our hybrid AI + human model means you get the speed of automation and the judgment of a real person — for every single task, no matter how simple or complex.</p>
+        <p>From Vancouver to Dubai, our members share one thing in common: they've stopped drowning in the mundane and started living with intention.</p>
+      </div>
+      <div class="mission-visual">
+        <div class="mission-stat-card">
+          <strong>5K+</strong><span>Active members</span>
+        </div>
+        <div class="mission-stat-card">
+          <strong>98%</strong><span>Task completion rate</span>
+        </div>
+        <div class="mission-stat-card">
+          <strong>12h</strong><span>Avg hours saved/week</span>
+        </div>
+        <div class="mission-stat-card">
+          <strong>4.9★</strong><span>Member satisfaction</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--off-white);">
+    <div class="text-center" style="max-width:600px;margin:0 auto 0;">
+      <div class="section-label">✦ Our Model</div>
+      <h2 class="section-title">Why AI + Human is the only answer</h2>
+      <p class="section-sub">AI alone can't make a phone call with empathy. Humans alone can't process 1,000 emails in seconds. Together, they're unstoppable.</p>
+    </div>
+    <div class="model-cards">
+      <div class="model-card ai">
+        <div style="font-size:2rem;margin-bottom:16px;">🤖</div>
+        <h3>The AI Engine</h3>
+        <p>Our AI works 24/7, processing emails, setting reminders, organizing schedules, and learning your preferences. It gets smarter the longer you use it — without ever taking a day off.</p>
+      </div>
+      <div class="model-card human">
+        <div style="font-size:2rem;margin-bottom:16px;">🧑‍💼</div>
+        <h3>The Human Concierge</h3>
+        <p>Real people who bring empathy, creativity, and judgment to every complex task. They make calls, resolve disputes, negotiate deals, and handle anything that needs a human touch.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="text-center" style="max-width:500px;margin:0 auto 0;">
+      <div class="section-label">✦ The Team</div>
+      <h2 class="section-title">People who get it done</h2>
+    </div>
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="team-avatar" style="background:rgba(14,165,160,0.12);">👩‍💻</div>
+        <h4>Sarah Kim</h4>
+        <p>Co-Founder & CEO</p>
+        <small>Former Shopify PM · Built ops tools for 5 years</small>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar" style="background:rgba(11,31,58,0.07);">👨‍🔬</div>
+        <h4>Marcus Webb</h4>
+        <p>Co-Founder & CTO</p>
+        <small>Ex-Google AI · MS Computer Science, UBC</small>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar" style="background:rgba(245,158,11,0.1);">👩‍🎨</div>
+        <h4>Priya Nair</h4>
+        <p>Head of Concierge Ops</p>
+        <small>Built 3 concierge teams · Multilingual support lead</small>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-banner">
+    <h2>Ready to simplify your life?</h2>
+    <p>Join thousands of people who've reclaimed their time with LifeOps Pro.</p>
+    <div class="cta-btns">
+      <button class="btn btn-white btn-lg" onclick="showPage('pricing')">View Pricing</button>
+      <button class="btn btn-lg" style="background:rgba(255,255,255,0.1);color:#fff;border:1.5px solid rgba(255,255,255,0.25);" onclick="showPage('contact')">Contact Us</button>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand"><div class="logo"><div class="logo-icon">⚡</div> LifeOps Pro</div><p>AI-powered life admin for busy people.</p></div>
+      <div class="footer-col"><h4>Product</h4><a onclick="showPage('features')">Features</a><a onclick="showPage('pricing')">Pricing</a></div>
+      <div class="footer-col"><h4>Company</h4><a onclick="showPage('about')">About</a><a onclick="showPage('contact')">Contact</a></div>
+      <div class="footer-col"><h4>Legal</h4><a>Privacy</a><a>Terms</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 LifeOps Pro. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<!-- ═══════════════════ CONTACT PAGE ═══════════════════ -->
+<div id="page-contact" class="page">
+  <div class="contact-page">
+    <div style="text-align:center;max-width:560px;margin:0 auto 60px;">
+      <div class="section-label">✦ Get In Touch</div>
+      <h1 style="font-size:clamp(1.8rem,3.5vw,2.8rem);margin-bottom:14px;">We'd love to hear from you</h1>
+      <p style="color:var(--gray-500);font-size:1.05rem;">Whether you're a curious newcomer or a busy executive — we're here to help.</p>
+    </div>
+
+    <div class="contact-grid">
+      <div class="contact-info">
+        <h2>Let's talk</h2>
+        <p>Got questions about how it works, which plan to pick, or how we can help with a specific task? Reach out — a real human will respond.</p>
+
+        <div class="contact-method">
+          <div class="contact-method-icon">📧</div>
+          <div><strong>Email Support</strong><span>hello@lifeops.pro</span></div>
+        </div>
+        <div class="contact-method">
+          <div class="contact-method-icon">💬</div>
+          <div><strong>Live Chat</strong><span>Available Mon–Fri · 9am–6pm PT</span></div>
+        </div>
+        <div class="contact-method">
+          <div class="contact-method-icon">📞</div>
+          <div><strong>Phone (Premium only)</strong><span>+1 (604) 555-0190</span></div>
+        </div>
+        <div class="contact-method">
+          <div class="contact-method-icon">📍</div>
+          <div><strong>Headquarters</strong><span>Vancouver, BC, Canada</span></div>
+        </div>
+
+        <div style="margin-top:36px;padding:20px;background:var(--off-white);border-radius:14px;border:1.5px solid var(--gray-100);">
+          <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">⚡ Typical response time</div>
+          <div style="font-size:0.82rem;color:var(--gray-500);">Basic: 48h · Standard: 12h · Premium: 4h</div>
+        </div>
+      </div>
+
+      <div class="contact-form">
+        <h3 style="font-size:1.1rem;margin-bottom:24px;">Send us a message</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" placeholder="Alex">
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" placeholder="Johnson">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" placeholder="alex@email.com">
+        </div>
+        <div class="form-group">
+          <label>Subject</label>
+          <select>
+            <option>General Inquiry</option>
+            <option>Sales / Pricing</option>
+            <option>Technical Support</option>
+            <option>Partnership</option>
+            <option>Press / Media</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea placeholder="Tell us what you need help with..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:14px;font-size:0.95rem;" onclick="submitForm()">Send Message →</button>
+        <p style="font-size:0.75rem;color:var(--gray-500);text-align:center;margin-top:12px;">We respect your privacy. No spam, ever.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand"><div class="logo"><div class="logo-icon">⚡</div> LifeOps Pro</div><p>AI-powered life admin for busy people.</p></div>
+      <div class="footer-col"><h4>Product</h4><a onclick="showPage('features')">Features</a><a onclick="showPage('pricing')">Pricing</a></div>
+      <div class="footer-col"><h4>Company</h4><a onclick="showPage('about')">About</a><a onclick="showPage('contact')">Contact</a></div>
+      <div class="footer-col"><h4>Legal</h4><a>Privacy</a><a>Terms</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 LifeOps Pro. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<script>
+  // PAGE NAVIGATION
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // NAV SCROLL EFFECT
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // ADD TASK (Dashboard)
+  let taskCount = 0;
+  function addTask() {
+    const tasks = [
+      { name: 'Update insurance policy', handler: 'Human', priority: 'p-med', label: 'Medium' },
+      { name: 'Summarize Q1 expenses', handler: 'AI', priority: 'p-low', label: 'Low' },
+      { name: 'Book car service appointment', handler: 'Human', priority: 'p-high', label: 'High' },
+    ];
+    const t = tasks[taskCount % tasks.length];
+    taskCount++;
+    const isAI = t.handler === 'AI';
+    const div = document.createElement('div');
+    div.className = 'task-row';
+    div.style.animation = 'fadeSlideDown 0.4s ease both';
+    div.innerHTML = `
+      <div class="task-check"></div>
+      <div class="task-info"><strong>${t.name}</strong><small>Just added · ${t.handler} assigned</small></div>
+      <span class="task-tag ${isAI ? 'tag-ai' : 'tag-human'}" style="font-size:0.72rem;padding:3px 10px;border-radius:50px;background:${isAI ? 'rgba(14,165,160,0.12)' : 'rgba(11,31,58,0.08)'};color:${isAI ? 'var(--teal)' : 'var(--navy-mid)'};">${t.handler}</span>
+      <span class="task-priority ${t.priority}">${t.label}</span>
+    `;
+    document.getElementById('new-tasks-area').prepend(div);
+  }
+
+  // FORM SUBMIT FEEDBACK
+  function submitForm() {
+    const btn = event.target;
+    btn.textContent = '✓ Message Sent!';
+    btn.style.background = 'var(--green)';
+    setTimeout(() => {
+      btn.textContent = 'Send Message →';
+      btn.style.background = '';
+    }, 3000);
+  }
+</script>
+</body>
+</html>
