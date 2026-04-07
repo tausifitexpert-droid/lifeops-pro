@@ -458,21 +458,42 @@ function AuthPage({ onLogin }) {
   const [tab, setTab] = useState("login");
   const [form, setForm] = useState({ email: "", password: "", name: "", phone: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    const user = DB.users.find(u => u.email === form.email && u.password === form.password);
-    if (!user) { setError("Invalid email or password."); return; }
-    setError("");
-    onLogin(user);
+  const handleLogin = async () => {
+    if (!form.email || !form.password) { setError("Email and password required."); return; }
+    setLoading(true); setError("");
+    const { data, error: err } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.password,
+    });
+    if (err) { setError(err.message); setLoading(false); return; }
+    const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
+    setLoading(false);
+    onLogin({ ...data.user, ...profile });
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!form.name || !form.email || !form.password) { setError("All fields required."); return; }
-    if (DB.users.find(u => u.email === form.email)) { setError("Email already registered."); return; }
-    const newUser = { id: uid(), name: form.name, email: form.email, phone: form.phone || "", password: form.password, role: "user", createdAt: new Date().toISOString(), settings: { defaultPayment: "", reminderDays: [30, 7], notifyEmail: true, notifySMS: true } };
-    DB.users.push(newUser);
-    setError("");
-    onLogin(newUser);
+    setLoading(true); setError("");
+    const { data, error: err } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+    });
+    if (err) { setError(err.message); setLoading(false); return; }
+    await supabase.from("profiles").upsert({
+      id: data.user.id,
+      name: form.name,
+      email: form.email,
+      phone: form.phone || null,
+      role: "user",
+      reminder_days: [30, 7],
+      notify_email: true,
+      notify_sms: true,
+    });
+    const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
+    setLoading(false);
+    onLogin({ ...data.user, ...profile });
   };
 
   return (
@@ -1721,10 +1742,28 @@ function AdminPanel({ user, showToast }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("dashboard");
+  const [authLoading, setAuthLoading] = useState(true);
   const { toasts, show: showToast } = useToast();
 
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+        if (profile) {
+          setUser({ ...session.user, ...profile });
+          setPage(profile.role === "admin" ? "admin" : "dashboard");
+        }
+      }
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT") { setUser(null); setPage("dashboard"); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleLogin = (u) => { setUser(u); setPage(u.role === "admin" ? "admin" : "dashboard"); };
-  const handleLogout = () => { setUser(null); setPage("dashboard"); };
+  const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setPage("dashboard"); };
 
   if (!user) return <><style>{css}</style><AuthPage onLogin={handleLogin} /></>;
 
