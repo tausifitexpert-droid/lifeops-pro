@@ -1726,7 +1726,7 @@ function AdminPanel({ user, showToast }) {
 }
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
-export default function App() {
+export default function App({ onBackToLanding }) {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("dashboard");
   const [authLoading, setAuthLoading] = useState(true);
@@ -1808,6 +1808,19 @@ export default function App() {
               </button>
             ))}
           </div>
+          {onBackToLanding && (
+            <div style={{padding:"0 10px",marginBottom:8}}>
+              <button
+                onClick={onBackToLanding}
+                style={{display:"flex",alignItems:"center",gap:9,padding:"9px 12px",borderRadius:10,cursor:"pointer",color:"rgba(255,255,255,0.4)",fontSize:13,fontWeight:500,border:"none",background:"none",width:"100%",textAlign:"left",transition:"all 0.2s"}}
+                onMouseOver={e=>{e.currentTarget.style.color="rgba(255,255,255,0.8)";e.currentTarget.style.background="rgba(255,255,255,0.06)"}}
+                onMouseOut={e=>{e.currentTarget.style.color="rgba(255,255,255,0.4)";e.currentTarget.style.background="none"}}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Back to Website
+              </button>
+            </div>
+          )}
           <div className="sidebar-bottom">
             <div className="user-card">
               <div className="avatar" style={{ background: avatarColor(user.name), color: "#fff" }}>{initials(user.name)}</div>
