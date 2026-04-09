@@ -731,7 +731,7 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           {/* Reminders */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 8 }}>Reminder Schedule</div>
-            {(task.reminders || []).map((r, i) => {
+            {(task.reminder_days || []).map((r, i) => {
               const reminderDate = task.due_date ? new Date(new Date(task.due_date + "T12:00:00").getTime() - r.days * 86400000).toISOString().split("T")[0] : null;
               return (
                 <div key={i} className="reminder-row">
@@ -1049,8 +1049,10 @@ function PaymentsSettings({ user, showToast, paymentMethods: initialPMs = [], se
     showToast("Profile saved!", "success", "Saved");
   };
 
+  const [enrolled, setEnrolled] = useState([]);
   const toggleService = (id) => {
-    showToast("Service enquiry submitted! Admin will contact you shortly.", "success", "Enrolled");
+    setEnrolled(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    showToast(enrolled.includes(id) ? "Service cancelled." : "Enrolled! Admin will contact you.", enrolled.includes(id) ? "info" : "success");
   };
 
   const pmIcons = { credit_card: "💳", ach: "🏦", bank: "🏛️", wire: "🌐", check: "📝" };
@@ -1506,19 +1508,19 @@ function RemindersPage({ user, showToast }) {
           })}
         </div>
 
-        {/* Sent History */}
+        {/* Sent History — uses notifications of type reminder */}
         <div className="card">
           <div className="card-header">
             <div className="card-title"><Ico n="sms" size={16} />Notification History</div>
           </div>
-          {reminders.length === 0 ? (
-            <div className="empty-state" style={{ padding: "32px 16px" }}><p>No notifications sent yet.</p></div>
-          ) : reminders.map(r => (
-            <div key={r.id} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ fontSize: 20, flexShrink: 0 }}>{r.type === "email" ? "📧" : "📱"}</div>
+          {notifications.filter(n => n.type === "reminder").length === 0 ? (
+            <div className="empty-state" style={{ padding: "32px 16px" }}><p>No reminders sent yet. Click "Send Test" to try.</p></div>
+          ) : notifications.filter(n => n.type === "reminder").map(n => (
+            <div key={n.id} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 20, flexShrink: 0 }}>📧</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.5 }}>{r.message}</div>
-                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(r.sentAt)} · {r.delivered ? "✅ Delivered" : "❌ Failed"}</div>
+                <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.5 }}>{n.message}</div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(n.created_at)}</div>
               </div>
             </div>
           ))}
