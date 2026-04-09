@@ -22,7 +22,7 @@ const scanEmailForTask = (email) => {
   const amountMatch = email.body.match(/\$[\d,]+\.?\d*/g);
   const dateMatch = email.body.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*\d{4}/gi) ||
     email.body.match(/\b\d{1,2}\/\d{1,2}\/\d{4}/g);
-  const vendorMatch = email.from.match(/@([^.]+)\./);
+  const vendorMatch = (email.from_email || email.from || "").match(/@([^.]+)\./);
 
   let amount = null, dueDate = null, vendor = "", category = "payment";
 
@@ -45,7 +45,7 @@ const scanEmailForTask = (email) => {
     amount,
     due_date: dueDate,
     category,
-    description: `Auto-extracted from email: ${email.from} on ${fmtDate(email.date)}`,
+    description: `Auto-extracted from email: ${email.from_email || email.from || ""} on ${fmtDate(email.date)}`,
     source: "email",
     email_id: email.id,
     priority: amount > 500 ? "high" : amount > 100 ? "medium" : "low",
@@ -779,10 +779,16 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
   const [saving, setSaving] = useState(false);
 
   const fetchEmails = async () => {
-    const { data } = await supabase.from("emails").select("*")
-      .eq("user_id", user.id).order("date", { ascending: false });
-    setEmails(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from("emails").select("*")
+        .eq("user_id", user.id).order("date", { ascending: false });
+      if (error) console.error("fetchEmails error:", error);
+      setEmails(data || []);
+    } catch (err) {
+      console.error("EmailScanner fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { fetchEmails(); }, []);
 
@@ -991,9 +997,14 @@ function PaymentsSettings({ user, showToast, paymentMethods: initialPMs = [], se
   const [profilePhone, setProfilePhone] = useState(user.phone || "");
 
   const fetchPMs = async () => {
-    const { data } = await supabase.from("payment_methods").select("*").eq("user_id", user.id);
-    setPMs(data || []);
-    if (setGlobalPMs) setGlobalPMs(data || []);
+    try {
+      const { data, error } = await supabase.from("payment_methods").select("*").eq("user_id", user.id);
+      if (error) console.error("fetchPMs error:", error);
+      setPMs(data || []);
+      if (setGlobalPMs) setGlobalPMs(data || []);
+    } catch (err) {
+      console.error("fetchPMs error:", err);
+    }
   };
   useEffect(() => { fetchPMs(); }, []);
 
@@ -1221,10 +1232,16 @@ function Dashboard({ user, setPage, showToast, paymentMethods = [] }) {
   const [activeFilter, setActiveFilter] = useState("all");
 
   const fetchTasks = async () => {
-    const { data } = await supabase.from("tasks").select("*")
-      .eq("user_id", user.id).order("created_at", { ascending: false });
-    setTasks(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from("tasks").select("*")
+        .eq("user_id", user.id).order("created_at", { ascending: false });
+      if (error) console.error("fetchTasks error:", error);
+      setTasks(data || []);
+    } catch (err) {
+      console.error("Dashboard fetchTasks error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { fetchTasks(); }, []);
 
@@ -1409,13 +1426,20 @@ function RemindersPage({ user, showToast }) {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = async () => {
-    const [{ data: tasksData }, { data: notifData }] = await Promise.all([
-      supabase.from("tasks").select("*").eq("user_id", user.id).eq("status", "pending"),
-      supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-    ]);
-    setTasks(tasksData || []);
-    setNotifications(notifData || []);
-    setLoading(false);
+    try {
+      const [{ data: tasksData, error: tErr }, { data: notifData, error: nErr }] = await Promise.all([
+        supabase.from("tasks").select("*").eq("user_id", user.id).eq("status", "pending"),
+        supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      ]);
+      if (tErr) console.error("tasks fetch error:", tErr);
+      if (nErr) console.error("notifications fetch error:", nErr);
+      setTasks(tasksData || []);
+      setNotifications(notifData || []);
+    } catch (err) {
+      console.error("RemindersPage fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { fetchAll(); }, []);
 
@@ -1541,13 +1565,20 @@ function AdminPanel({ user, showToast }) {
   const [tab, setTab] = useState("tasks");
 
   const fetchAll = async () => {
-    const [{ data: tasksData }, { data: usersData }] = await Promise.all([
-      supabase.from("tasks").select("*").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("*"),
-    ]);
-    setTasks(tasksData || []);
-    setUsers(usersData || []);
-    setLoading(false);
+    try {
+      const [{ data: tasksData, error: tErr }, { data: usersData, error: uErr }] = await Promise.all([
+        supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+        supabase.from("profiles").select("*"),
+      ]);
+      if (tErr) console.error("admin tasks error:", tErr);
+      if (uErr) console.error("admin users error:", uErr);
+      setTasks(tasksData || []);
+      setUsers(usersData || []);
+    } catch (err) {
+      console.error("AdminPanel fetchAll error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { fetchAll(); }, []);
 
@@ -1758,16 +1789,26 @@ export default function App({ onBackToLanding }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        if (profile) {
-          setUser({ ...session.user, ...profile });
-          setPage(profile.role === "admin" ? "admin" : "dashboard");
-          const { data: pms } = await supabase.from("payment_methods").select("*").eq("user_id", session.user.id);
-          setPaymentMethods(pms || []);
+      try {
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from("profiles").select("*").eq("id", session.user.id).single();
+          if (profile) {
+            setUser({ ...session.user, ...profile });
+            setPage(profile.role === "admin" ? "admin" : "dashboard");
+            const { data: pms } = await supabase
+              .from("payment_methods").select("*").eq("user_id", session.user.id);
+            setPaymentMethods(pms || []);
+          } else {
+            // Profile missing — still restore auth user with defaults
+            setUser({ ...session.user, role: "user", reminder_days: [30, 7] });
+          }
         }
+      } catch (err) {
+        console.error("Session restore error:", err);
+      } finally {
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT") { setUser(null); setPage("dashboard"); }
@@ -1909,10 +1950,16 @@ function TasksPage({ user, showToast, paymentMethods = [] }) {
   const [filterCategory, setFilterCategory] = useState("all");
 
   const fetchTasks = async () => {
-    const { data } = await supabase.from("tasks").select("*")
-      .eq("user_id", user.id).order("due_date", { ascending: true, nullsFirst: false });
-    setTasks(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from("tasks").select("*")
+        .eq("user_id", user.id).order("due_date", { ascending: true, nullsFirst: false });
+      if (error) console.error("TasksPage fetchTasks error:", error);
+      setTasks(data || []);
+    } catch (err) {
+      console.error("TasksPage error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { fetchTasks(); }, []);
 
