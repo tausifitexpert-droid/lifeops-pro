@@ -1,47 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase.js";
 
-// ─── In-Memory DB (simulates persistent storage via window.storage API) ────────
-let DB = {
-  users: [
-    { id: "admin", name: "Admin User", email: "admin@taskflow.com", phone: "+1-555-0100", password: "admin123", role: "admin", createdAt: new Date().toISOString(), settings: { defaultPayment: "bank", reminderDays: [30, 7], notifyEmail: true, notifySMS: true } },
-    { id: "u1", name: "Alice Chen", email: "alice@example.com", phone: "+1-555-0101", password: "alice123", role: "user", createdAt: new Date().toISOString(), settings: { defaultPayment: "credit_card", reminderDays: [30, 7], notifyEmail: true, notifySMS: true } },
-    { id: "u2", name: "Bob Martinez", email: "bob@example.com", phone: "+1-555-0102", password: "bob123", role: "user", createdAt: new Date().toISOString(), settings: { defaultPayment: "ach", reminderDays: [30, 7], notifyEmail: true, notifySMS: false } },
-  ],
-  tasks: [
-    { id: "t1", userId: "u1", title: "AWS Cloud Services Invoice", description: "Monthly AWS bill for compute and storage", vendor: "Amazon Web Services", amount: 847.32, dueDate: "2026-04-30", priority: "high", status: "pending", category: "subscription", paymentMethod: "credit_card", reminders: [{ days: 30, sent: false }, { days: 7, sent: false }], tags: ["cloud", "infrastructure"], source: "email", emailId: "em1", adminPaid: false, adminService: false, createdAt: new Date().toISOString() },
-    { id: "t2", userId: "u1", title: "Figma Team Plan Renewal", description: "Annual design tool subscription", vendor: "Figma Inc", amount: 540.00, dueDate: "2026-05-15", priority: "medium", status: "pending", category: "subscription", paymentMethod: "credit_card", reminders: [{ days: 30, sent: true }, { days: 7, sent: false }], tags: ["design", "tools"], source: "manual", adminPaid: false, adminService: true, createdAt: new Date().toISOString() },
-    { id: "t3", userId: "u2", title: "Office 365 Business", description: "Microsoft 365 subscription renewal", vendor: "Microsoft", amount: 1200.00, dueDate: "2026-04-20", priority: "high", status: "pending", category: "subscription", paymentMethod: "ach", reminders: [{ days: 30, sent: false }, { days: 7, sent: false }], tags: ["microsoft", "productivity"], source: "email", emailId: "em2", adminPaid: true, adminService: true, adminPaidAt: new Date().toISOString(), adminPaidBy: "admin", createdAt: new Date().toISOString() },
-    { id: "t4", userId: "u1", title: "Slack Pro Plan", description: "Slack workspace subscription", vendor: "Slack Technologies", amount: 312.50, dueDate: "2026-04-10", priority: "medium", status: "completed", category: "subscription", paymentMethod: "credit_card", reminders: [{ days: 30, sent: true }, { days: 7, sent: true }], tags: ["communication"], source: "manual", adminPaid: false, adminService: false, createdAt: new Date().toISOString() },
-    { id: "t5", userId: "u2", title: "Domain Renewal - company.com", description: "Annual domain registration fee", vendor: "GoDaddy", amount: 24.99, dueDate: "2026-06-01", priority: "low", status: "pending", category: "domain", paymentMethod: "credit_card", reminders: [{ days: 30, sent: false }, { days: 7, sent: false }], tags: ["domain", "hosting"], source: "email", emailId: "em3", adminPaid: false, adminService: false, createdAt: new Date().toISOString() },
-  ],
-  emails: [
-    { id: "em1", userId: "u1", provider: "gmail", subject: "Your AWS Invoice for March 2026 - $847.32 due April 30", from: "billing@aws.amazon.com", body: "Dear Alice Chen, your AWS invoice #INV-2026-0347 for $847.32 is due by April 30, 2026. Services: EC2 ($412.10), S3 ($98.45), RDS ($336.77). Please ensure payment to avoid service interruption.", date: "2026-03-28", scanned: true, taskCreated: true, taskId: "t1" },
-    { id: "em2", userId: "u2", provider: "outlook", subject: "Microsoft 365 renewal notice - $1,200.00 due April 20", from: "billing@microsoft.com", body: "Hi Bob Martinez, your Microsoft 365 Business subscription renews on April 20, 2026 for $1,200.00. Please update payment information or confirm auto-renewal.", date: "2026-03-25", scanned: true, taskCreated: true, taskId: "t3" },
-    { id: "em3", userId: "u2", provider: "gmail", subject: "Domain Renewal: company.com - Expires June 1, 2026", from: "noreply@godaddy.com", body: "Your domain company.com will expire on June 1, 2026. Renewal cost: $24.99 for 1 year. Act now to keep your domain!", date: "2026-03-20", scanned: true, taskCreated: true, taskId: "t5" },
-    { id: "em4", userId: "u1", provider: "gmail", subject: "GitHub Enterprise Invoice - $2,400.00 due May 5", from: "billing@github.com", body: "Invoice #GH-2026-8821: GitHub Enterprise plan for your organization. Amount due: $2,400.00 by May 5, 2026. This covers 20 seats × $120/year.", date: "2026-04-01", scanned: false, taskCreated: false },
-    { id: "em5", userId: "u1", provider: "gmail", subject: "Zoom Business Plan - Renewal $199.90 due April 25", from: "billing@zoom.us", body: "Your Zoom Business plan renews April 25, 2026. Amount: $199.90 for annual subscription. 2 hosts included.", date: "2026-04-02", scanned: false, taskCreated: false },
-  ],
-  paymentMethods: [
-    { id: "pm1", userId: "u1", type: "credit_card", label: "Visa ending 4242", last4: "4242", brand: "Visa", isDefault: true },
-    { id: "pm2", userId: "u1", type: "ach", label: "Chase Checking ****1234", last4: "1234", brand: "ACH", isDefault: false },
-    { id: "pm3", userId: "u2", type: "ach", label: "Bank of America ****5678", last4: "5678", brand: "ACH", isDefault: true },
-    { id: "pm4", userId: "u2", type: "credit_card", label: "Mastercard ending 5678", last4: "5678", brand: "Mastercard", isDefault: false },
-  ],
-  reminders: [
-    { id: "r1", taskId: "t2", userId: "u1", type: "email", sentAt: "2026-03-16", message: "Figma Team Plan renewal due in 30 days - $540.00", delivered: true },
-    { id: "r2", taskId: "t3", userId: "u2", type: "email", sentAt: "2026-03-21", message: "Microsoft 365 renewal due in 30 days - $1,200.00", delivered: true },
-    { id: "r3", taskId: "t4", userId: "u1", type: "sms", sentAt: "2026-03-14", message: "Slack Pro Plan due in 30 days - $312.50", delivered: true },
-  ],
-  adminServices: [
-    { id: "as1", name: "Auto-Pay on Behalf", description: "Admin team handles payment before due date. You are notified via email and SMS once paid. No late fees, no stress.", price: 4.99, priceNote: "per transaction", icon: "💳", popular: true },
-    { id: "as2", name: "Full Bill Management", description: "We scan, create tasks, set reminders, and pay all your bills monthly. Zero effort required from you.", price: 29.99, priceNote: "per month", icon: "🛡️", popular: false },
-    { id: "as3", name: "Payment Negotiation", description: "Our team negotiates better rates with vendors on your behalf. Save more than the service fee on most bills.", price: 19.99, priceNote: "per negotiation", icon: "🤝", popular: false },
-  ],
-  notifications: [],
-  session: null,
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const initials = (n) => n.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
@@ -84,11 +43,11 @@ const scanEmailForTask = (email) => {
     title: email.subject.replace(/^(Re:|Fwd:)\s*/i, "").slice(0, 80),
     vendor,
     amount,
-    dueDate,
+    due_date: dueDate,
     category,
     description: `Auto-extracted from email: ${email.from} on ${fmtDate(email.date)}`,
     source: "email",
-    emailId: email.id,
+    email_id: email.id,
     priority: amount > 500 ? "high" : amount > 100 ? "medium" : "low",
   };
 };
@@ -436,8 +395,8 @@ function DueBadge({ dueDate, status }) {
   if (days < 0) return <span className="badge badge-overdue">⚠ Overdue {Math.abs(days)}d</span>;
   if (days === 0) return <span className="badge badge-overdue">Due Today!</span>;
   if (days <= 7) return <span className="badge" style={{ background: "rgba(245,158,11,0.15)", color: "var(--med)" }}>Due in {days}d</span>;
-  if (days <= 30) return <span className="badge" style={{ background: "rgba(99,91,255,0.1)", color: "var(--accent)" }}>Due in {days}d</span>;
-  return <span className="badge" style={{ background: "rgba(0,212,170,0.08)", color: "var(--accent3)" }}>Due {fmtDate(dueDate)}</span>;
+  if (days <= 30) return <span className="badge" style={{ background: "rgba(99,91,255,0.1)", color: "var(--navy)" }}>Due in {days}d</span>;
+  return <span className="badge" style={{ background: "rgba(0,212,170,0.08)", color: "var(--teal)" }}>Due {fmtDate(dueDate)}</span>;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -515,24 +474,22 @@ function AuthPage({ onLogin }) {
 }
 
 // ─── Task Modal (Create / Edit) ───────────────────────────────────────────────
-function TaskModal({ task, onSave, onClose, user }) {
-  const userSettings = DB.users.find(u => u.id === user.id)?.settings || {};
-  const userPMs = DB.paymentMethods.filter(pm => pm.userId === user.id);
-  const defaultPM = userPMs.find(pm => pm.isDefault)?.id || "";
+function TaskModal({ task, onSave, onClose, user, paymentMethods = [] }) {
+  const defaultPM = paymentMethods.find(pm => pm.is_default)?.id || "";
 
   const [form, setForm] = useState({
     title: task?.title || "",
     vendor: task?.vendor || "",
     description: task?.description || "",
     amount: task?.amount ?? "",
-    dueDate: task?.dueDate || "",
+    due_date: task?.due_date || "",
     priority: task?.priority || "medium",
     status: task?.status || "pending",
     category: task?.category || "payment",
-    paymentMethod: task?.paymentMethod || defaultPM,
+    payment_method_id: task?.payment_method_id || defaultPM,
     tags: task?.tags || [],
-    adminService: task?.adminService || false,
-    reminderDays: userSettings.reminderDays || [30, 7],
+    admin_service: task?.admin_service || false,
+    reminder_days: task?.reminder_days || user?.reminder_days || [30, 7],
   });
   const [tagInput, setTagInput] = useState("");
 
@@ -545,17 +502,16 @@ function TaskModal({ task, onSave, onClose, user }) {
   };
   const removeTag = (t) => f("tags", form.tags.filter(x => x !== t));
   const setReminderDay = (idx, val) => {
-    const r = [...form.reminderDays];
+    const r = [...form.reminder_days];
     r[idx] = parseInt(val) || 0;
-    f("reminderDays", r);
+    f("reminder_days", r);
   };
-  const addReminder = () => f("reminderDays", [...form.reminderDays, 14]);
-  const removeReminder = (idx) => f("reminderDays", form.reminderDays.filter((_, i) => i !== idx));
+  const addReminder = () => f("reminder_days", [...form.reminder_days, 14]);
+  const removeReminder = (idx) => f("reminder_days", form.reminder_days.filter((_, i) => i !== idx));
 
   const handleSave = () => {
     if (!form.title) return;
-    const reminders = form.reminderDays.map(d => ({ days: d, sent: false }));
-    onSave({ ...form, amount: form.amount ? parseFloat(form.amount) : null, reminders });
+    onSave({ ...form, amount: form.amount ? parseFloat(form.amount) : null });
   };
 
   const pmIcons = { credit_card: "💳", ach: "🏦", bank: "🏛️", wire: "🌐", check: "📝" };
@@ -587,7 +543,7 @@ function TaskModal({ task, onSave, onClose, user }) {
             </div>
             <div className="field-row">
               <div className="field"><label>Amount ($)</label><input type="number" step="0.01" value={form.amount} onChange={e => f("amount", e.target.value)} placeholder="0.00" /></div>
-              <div className="field"><label>Due Date</label><input type="date" value={form.dueDate} onChange={e => f("dueDate", e.target.value)} /></div>
+              <div className="field"><label>Due Date</label><input type="date" value={form.due_date} onChange={e => f("due_date", e.target.value)} /></div>
             </div>
             <div className="field-row">
               <div className="field"><label>Priority</label>
@@ -612,9 +568,9 @@ function TaskModal({ task, onSave, onClose, user }) {
           <div className="form-section">
             <div className="form-section-title">💳 Payment & Reminders</div>
             <div className="field"><label>Payment Method</label>
-              <select value={form.paymentMethod} onChange={e => f("paymentMethod", e.target.value)}>
+              <select value={form.payment_method_id} onChange={e => f("payment_method_id", e.target.value)}>
                 <option value="">— Select payment method —</option>
-                {userPMs.map(pm => <option key={pm.id} value={pm.id}>{pmIcons[pm.type] || "💳"} {pm.label}{pm.isDefault ? " (Default)" : ""}</option>)}
+                {paymentMethods.map(pm => <option key={pm.id} value={pm.id}>{pmIcons[pm.type] || "💳"} {pm.label}{pm.is_default ? " (Default)" : ""}</option>)}
                 <option value="credit_card">💳 Credit Card (generic)</option>
                 <option value="ach">🏦 ACH / Bank Transfer</option>
                 <option value="wire">🌐 Wire Transfer</option>
@@ -623,17 +579,17 @@ function TaskModal({ task, onSave, onClose, user }) {
             </div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 8 }}>Reminder Schedule</div>
-              {form.reminderDays.map((d, i) => (
+              {form.reminder_days.map((d, i) => (
                 <div key={i} className="days-input-row">
                   <span style={{ fontSize: 13, color: "var(--text2)" }}>{i === 0 ? "📅 1st reminder:" : i === 1 ? "📅 2nd reminder:" : `📅 Reminder ${i + 1}:`}</span>
                   <input className="days-input" type="number" min="1" max="365" value={d} onChange={e => setReminderDay(i, e.target.value)} />
                   <span style={{ fontSize: 13, color: "var(--text2)" }}>days before due</span>
-                  {form.reminderDays.length > 1 && (
+                  {form.reminder_days.length > 1 && (
                     <button className="btn btn-ghost btn-icon-sm" onClick={() => removeReminder(i)}><Ico n="close" size={12} /></button>
                   )}
                 </div>
               ))}
-              {form.reminderDays.length < 5 && (
+              {form.reminder_days.length < 5 && (
                 <button className="btn btn-ghost btn-sm" onClick={addReminder} style={{ marginTop: 4 }}><Ico n="plus" size={12} />Add Reminder</button>
               )}
             </div>
@@ -643,9 +599,9 @@ function TaskModal({ task, onSave, onClose, user }) {
             <div className="form-section-title">🛡️ Admin Managed Service</div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1 }}>
-                <div style={{ position: "relative", width: 44, height: 24 }} onClick={() => f("adminService", !form.adminService)}>
-                  <div style={{ width: 44, height: 24, background: form.adminService ? "var(--accent)" : "var(--surface3)", borderRadius: 12, transition: "background var(--transition)", border: "1px solid var(--border)" }} />
-                  <div style={{ position: "absolute", top: 3, left: form.adminService ? 22 : 3, width: 16, height: 16, background: "#fff", borderRadius: "50%", transition: "left var(--transition)" }} />
+                <div style={{ position: "relative", width: 44, height: 24 }} onClick={() => f("admin_service", !form.admin_service)}>
+                  <div style={{ width: 44, height: 24, background: form.admin_service ? "var(--navy)" : "var(--surface3)", borderRadius: 12, transition: "background var(--transition)", border: "1px solid var(--border)" }} />
+                  <div style={{ position: "absolute", top: 3, left: form.admin_service ? 22 : 3, width: 16, height: 16, background: "#fff", borderRadius: "50%", transition: "left var(--transition)" }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Enable Admin-Managed Payment</div>
@@ -653,7 +609,7 @@ function TaskModal({ task, onSave, onClose, user }) {
                 </div>
               </label>
             </div>
-            {form.adminService && (
+            {form.admin_service && (
               <div className="alert alert-info" style={{ marginTop: 12, marginBottom: 0 }}>
                 ✅ This task will be queued for admin payment. You'll receive email & SMS confirmation once processed. A small service fee applies.
               </div>
@@ -671,7 +627,7 @@ function TaskModal({ task, onSave, onClose, user }) {
               ))}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addTag()} placeholder="Add tag..." style={{ flex: 1, background: "var(--surface3)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
+              <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addTag()} placeholder="Add tag..." style={{ flex: 1, background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
               <button className="btn btn-ghost btn-sm" onClick={addTag}>Add</button>
             </div>
           </div>
@@ -689,22 +645,25 @@ function TaskModal({ task, onSave, onClose, user }) {
 
 // ─── Task Detail Panel ────────────────────────────────────────────────────────
 function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, showToast }) {
-  const userObj = DB.users.find(u => u.id === task.userId);
-  const days = daysUntil(task.dueDate);
-  const pm = DB.paymentMethods.find(p => p.id === task.paymentMethod);
-  const reminderHistory = DB.reminders.filter(r => r.taskId === task.id);
+  const days = daysUntil(task.due_date);
+  const [paying, setPaying] = useState(false);
 
-  const handleAdminPay = () => {
-    const idx = DB.tasks.findIndex(t => t.id === task.id);
-    if (idx > -1) {
-      DB.tasks[idx].adminPaid = true;
-      DB.tasks[idx].adminPaidAt = new Date().toISOString();
-      DB.tasks[idx].adminPaidBy = user.id;
-      DB.tasks[idx].status = "completed";
-    }
-    const notification = { id: uid(), userId: task.userId, type: "payment", title: "Payment Processed", message: `Your ${task.vendor} payment of ${fmtAmt(task.amount)} has been processed by the admin team.`, createdAt: new Date().toISOString(), read: false };
-    DB.notifications.push(notification);
-    showToast(`Payment of ${fmtAmt(task.amount)} to ${task.vendor} processed successfully!`, "payment", "Payment Sent");
+  const handleAdminPay = async () => {
+    setPaying(true);
+    await supabase.from("tasks").update({
+      admin_paid: true,
+      admin_paid_at: new Date().toISOString(),
+      admin_paid_by: user.id,
+      status: "completed",
+    }).eq("id", task.id);
+    await supabase.from("notifications").insert({
+      user_id: task.user_id,
+      type: "payment",
+      title: "Payment Processed by Admin",
+      message: `Your ${task.vendor} payment of ${fmtAmt(task.amount)} has been processed by the admin team.`,
+    });
+    showToast(`Payment of ${fmtAmt(task.amount)} to ${task.vendor} processed!`, "payment", "Payment Sent");
+    setPaying(false);
     onAdminPay();
   };
 
@@ -725,11 +684,11 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
             <div style={{ flex: 1, background: "var(--surface2)", borderRadius: 12, padding: "16px 20px" }}>
               <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Amount</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 26, color: task.adminPaid ? "var(--accent3)" : "var(--text)" }}>{fmtAmt(task.amount)}</div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 26, color: task.adminPaid ? "var(--accent3)" : "var(--text)" }}>{fmtAmt(task.amount)}</div>
             </div>
             <div style={{ flex: 1, background: "var(--surface2)", borderRadius: 12, padding: "16px 20px" }}>
               <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Due Date</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: days !== null && days < 0 ? "var(--high)" : days !== null && days <= 7 ? "var(--med)" : "var(--text)" }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 16, color: days !== null && days < 0 ? "var(--high)" : days !== null && days <= 7 ? "var(--med)" : "var(--text)" }}>
                 {fmtDate(task.dueDate)}
                 {days !== null && <span style={{ fontSize: 12, color: "var(--text3)", display: "block", marginTop: 2 }}>
                   {days < 0 ? `${Math.abs(days)} days overdue` : days === 0 ? "Due today!" : `${days} days left`}
@@ -742,8 +701,8 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
             <span className={`badge badge-${task.priority}`}>{task.priority}</span>
             <span className={`badge badge-${task.status}`}>{task.status}</span>
-            {task.adminPaid && <span className="badge badge-admin-paid">✅ Admin Paid</span>}
-            {task.adminService && !task.adminPaid && <span className="badge" style={{ background: "rgba(245,158,11,0.12)", color: "var(--med)" }}>🛡️ Admin Managed</span>}
+            {task.admin_paid && <span className="badge badge-admin-paid">✅ Admin Paid</span>}
+            {task.admin_service && !task.admin_paid && <span className="badge" style={{ background: "rgba(245,158,11,0.12)", color: "var(--med)" }}>🛡️ Admin Managed</span>}
             <span className={`badge badge-${task.source === "email" ? "email" : "manual"}`}>{task.source === "email" ? "📧 Email" : "✍️ Manual"}</span>
           </div>
 
@@ -753,12 +712,12 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           )}
 
           {/* Payment method */}
-          {pm && (
+          {task.payment_method_id && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 8 }}>Payment Method</div>
               <div className="pm-card" style={{ margin: 0 }}>
                 <div className="pm-icon">💳</div>
-                <div className="pm-info"><div className="pm-label">{pm.label}</div><div className="pm-type">{pm.type.replace("_", " ")}</div></div>
+                <div className="pm-info"><div className="pm-label">{task.payment_method_id}</div><div className="pm-type">Saved method</div></div>
               </div>
             </div>
           )}
@@ -767,7 +726,7 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 8 }}>Reminder Schedule</div>
             {(task.reminders || []).map((r, i) => {
-              const reminderDate = task.dueDate ? new Date(new Date(task.dueDate + "T12:00:00").getTime() - r.days * 86400000).toISOString().split("T")[0] : null;
+              const reminderDate = task.due_date ? new Date(new Date(task.due_date + "T12:00:00").getTime() - r.days * 86400000).toISOString().split("T")[0] : null;
               return (
                 <div key={i} className="reminder-row">
                   <div className={`reminder-icon-wrap ${r.sent ? "sent" : "pending"}`}>{r.sent ? "✅" : "⏰"}</div>
@@ -781,21 +740,7 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
             })}
           </div>
 
-          {/* Reminder history */}
-          {reminderHistory.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 8 }}>Notification History</div>
-              {reminderHistory.map(r => (
-                <div key={r.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: 14 }}>{r.type === "email" ? "📧" : "📱"}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, color: "var(--text2)" }}>{r.message}</div>
-                    <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(r.sentAt)} · {r.delivered ? "✅ Delivered" : "❌ Failed"}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+
 
           {/* Tags */}
           {(task.tags || []).length > 0 && (
@@ -805,9 +750,9 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           )}
         </div>
         <div className="panel-foot" style={{ flexWrap: "wrap" }}>
-          {user.role === "admin" && !task.adminPaid && (
-            <button className="btn btn-success" onClick={handleAdminPay} style={{ flex: "1 1 auto" }}>
-              💳 Pay Now on Behalf
+          {user.role === "admin" && !task.admin_paid && (
+            <button className="btn btn-success" onClick={handleAdminPay} disabled={paying} style={{ flex: "1 1 auto" }}>
+              {paying ? "Processing..." : "💳 Pay Now on Behalf"}
             </button>
           )}
           <button className="btn btn-ghost" onClick={() => onEdit(task)} style={{ flex: 1 }}><Ico n="edit" size={14} />Edit</button>
@@ -820,55 +765,75 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
 
 // ─── Email Scanner ─────────────────────────────────────────────────────────────
 function EmailScanner({ user, onTaskCreated, showToast }) {
-  const [emails, setEmails] = useState(() => DB.emails.filter(e => e.userId === user.id));
+  const [emails, setEmails] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState(null);
   const [extractedTask, setExtractedTask] = useState(null);
-  const [connecting, setConnecting] = useState(null);
-  const [connectedProviders] = useState(["gmail"]); // simulated
+  const [saving, setSaving] = useState(false);
 
-  const refresh = () => setEmails([...DB.emails.filter(e => e.userId === user.id)]);
+  const fetchEmails = async () => {
+    const { data } = await supabase.from("emails").select("*")
+      .eq("user_id", user.id).order("date", { ascending: false });
+    setEmails(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetchEmails(); }, []);
 
   const simulateScan = async () => {
     setScanning(true);
     showToast("Scanning your inbox for payment-related emails...", "email", "Scanning");
     await new Promise(r => setTimeout(r, 1800));
-    // Mark unscanned as scanned (simulate AI scanning)
-    DB.emails.forEach(e => {
-      if (e.userId === user.id && !e.scanned) e.scanned = true;
-    });
+    await supabase.from("emails").update({ scanned: true }).eq("user_id", user.id).eq("scanned", false);
     setScanning(false);
-    refresh();
-    showToast("Scan complete! Found actionable emails.", "success", "Scan Complete");
+    fetchEmails();
+    showToast("Scan complete! Review emails to create tasks.", "success", "Scan Complete");
   };
 
   const handlePreview = (email) => {
     setPreview(email);
     const extracted = scanEmailForTask(email);
-    setExtractedTask({ ...extracted, userId: user.id, status: "pending", reminders: [{ days: 30, sent: false }, { days: 7, sent: false }], tags: [], adminService: false });
+    setExtractedTask({
+      ...extracted,
+      user_id: user.id,
+      status: "pending",
+      reminder_days: [30, 7],
+      tags: [],
+      admin_service: false,
+      admin_paid: false,
+      source: "email",
+    });
   };
 
-  const handleCreateTask = () => {
-    if (!extractedTask) return;
-    const t = { ...extractedTask, id: uid(), createdAt: new Date().toISOString() };
-    DB.tasks.push(t);
-    const eIdx = DB.emails.findIndex(e => e.id === extractedTask.emailId);
-    if (eIdx > -1) { DB.emails[eIdx].taskCreated = true; DB.emails[eIdx].taskId = t.id; }
-    showToast(`Task "${t.title.slice(0, 40)}..." created successfully!`, "success", "Task Created");
+  const handleCreateTask = async () => {
+    if (!extractedTask || saving) return;
+    setSaving(true);
+    const { data: task, error } = await supabase.from("tasks").insert(extractedTask).select().single();
+    if (error) { showToast("Error creating task: " + error.message, "error"); setSaving(false); return; }
+    await supabase.from("emails").update({ task_created: true, task_id: task.id }).eq("id", extractedTask.email_id);
+    showToast(`Task "${task.title.slice(0, 40)}..." created!`, "success", "Task Created");
+    setSaving(false);
     setPreview(null);
     setExtractedTask(null);
-    refresh();
-    onTaskCreated();
+    fetchEmails();
+    if (onTaskCreated) onTaskCreated();
   };
 
-  const connectProvider = async (provider) => {
-    setConnecting(provider);
-    await new Promise(r => setTimeout(r, 1500));
-    setConnecting(null);
-    showToast(`${provider === "gmail" ? "Gmail" : "Outlook"} connected successfully!`, "success", "Connected");
+  const addSampleEmail = async () => {
+    const futureDate = new Date(Date.now() + 20 * 86400000).toISOString().split("T")[0];
+    await supabase.from("emails").insert({
+      user_id: user.id, provider: "manual",
+      subject: `Sample Invoice - $250.00 due ${futureDate}`,
+      from_email: "billing@vendor.com",
+      body: `Your invoice of $250.00 is due on ${futureDate}. Please ensure payment.`,
+      date: new Date().toISOString().split("T")[0],
+      scanned: false, task_created: false,
+    });
+    fetchEmails();
+    showToast("Sample email added!", "info");
   };
 
-  const unscanned = emails.filter(e => !e.taskCreated);
+  const unscanned = emails.filter(e => !e.task_created);
 
   return (
     <div>
@@ -885,9 +850,9 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
             <div key={p.id} style={{ flex: "1 1 200px", background: "var(--surface2)", border: `1px solid ${connectedProviders.includes(p.id) ? "var(--accent3)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
               <span style={{ fontSize: 28 }}>{p.icon}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14 }}>{p.label}</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 14 }}>{p.label}</div>
                 <div style={{ fontSize: 11, color: "var(--text3)" }}>{p.desc}</div>
-                {connectedProviders.includes(p.id) && <div style={{ fontSize: 11, color: "var(--accent3)", marginTop: 2 }}>✓ Connected</div>}
+                {connectedProviders.includes(p.id) && <div style={{ fontSize: 11, color: "var(--teal)", marginTop: 2 }}>✓ Connected</div>}
               </div>
               {!connectedProviders.includes(p.id) ? (
                 <button className="btn btn-primary btn-sm" onClick={() => connectProvider(p.id)} disabled={!!connecting}>
@@ -908,6 +873,9 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
         <button className="btn btn-primary" onClick={simulateScan} disabled={scanning}>
           <Ico n="scan" size={16} />{scanning ? "⏳ Scanning inbox..." : "🔍 Scan Inbox for Tasks"}
         </button>
+        <button className="btn btn-ghost" onClick={addSampleEmail}>
+          + Add Sample Email
+        </button>
         {unscanned.length > 0 && (
           <div className="alert alert-warn" style={{ margin: 0, flex: 1 }}>
             <strong>{unscanned.length} emails</strong> found with potential tasks. Click to create tasks.
@@ -917,27 +885,27 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
 
       {/* Email list */}
       <div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 14, color: "var(--text)" }}>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 14, marginBottom: 14, color: "var(--navy)" }}>
           Inbox ({emails.length} emails)
         </div>
         {emails.length === 0 ? (
-          <div className="empty-state"><div className="empty-state-icon">📬</div><p>No emails synced yet. Connect your email above.</p></div>
+          loading ? <div className="loading-wrap"><div className="spinner"/><span>Loading emails...</span></div> : <div className="empty-state"><div className="empty-state-icon">📬</div><p>No emails yet. Add a sample email to test.</p></div>
         ) : emails.map(email => (
-          <div key={email.id} className={`email-item ${email.scanned ? "scanned" : "unscanned"}`} onClick={() => handlePreview(email)}>
+          <div key={email.id} className={`email-item ${email.task_created ? "has-task" : "no-task"}`} onClick={() => handlePreview(email)}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <span style={{ fontSize: 20, marginTop: 2 }}>{email.provider === "gmail" ? "📧" : "📮"}</span>
+              <span style={{ fontSize: 20, marginTop: 2 }}>{email.provider === "outlook" ? "📮" : "📧"}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="email-subject">{email.subject}</div>
-                <div className="email-from">{email.from} · {fmtDate(email.date)}</div>
+                <div className="email-from">{email.from_email} · {fmtDate(email.date)}</div>
                 <div className="email-preview">{email.body}</div>
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-                {email.taskCreated ? (
+                {email.task_created ? (
                   <span className="badge badge-completed">✅ Task Created</span>
                 ) : email.scanned ? (
-                  <span className="badge badge-pending">⚡ Action Needed</span>
+                  <span className="badge badge-pending">⚡ Review</span>
                 ) : (
-                  <span className="badge" style={{ background: "var(--surface3)", color: "var(--text3)" }}>Unscanned</span>
+                  <span className="badge" style={{ background: "var(--surface2)", color: "var(--text3)" }}>Unscanned</span>
                 )}
               </div>
             </div>
@@ -967,33 +935,34 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
                 <div className="field-row" style={{ marginBottom: 12 }}>
                   <div>
                     <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Title</div>
-                    <input value={extractedTask.title} onChange={e => setExtractedTask(t => ({ ...t, title: e.target.value }))} style={{ width: "100%", background: "var(--surface3)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
+                    <input value={extractedTask.title} onChange={e => setExtractedTask(t => ({ ...t, title: e.target.value }))} style={{ width: "100%", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
                   </div>
                   <div>
                     <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Vendor</div>
-                    <input value={extractedTask.vendor} onChange={e => setExtractedTask(t => ({ ...t, vendor: e.target.value }))} style={{ width: "100%", background: "var(--surface3)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
+                    <input value={extractedTask.vendor} onChange={e => setExtractedTask(t => ({ ...t, vendor: e.target.value }))} style={{ width: "100%", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
                   </div>
                 </div>
                 <div className="field-row">
                   <div>
                     <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Amount Detected</div>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--accent)" }}>{fmtAmt(extractedTask.amount)}</div>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 22, color: "var(--navy)" }}>{fmtAmt(extractedTask.amount)}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Due Date Detected</div>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text)" }}>{fmtDate(extractedTask.dueDate)}</div>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 16, color: "var(--text)" }}>{fmtDate(extractedTask.due_date)}</div>
                   </div>
                 </div>
               </div>
             </div>
             <div className="modal-foot">
               <button className="btn btn-ghost" onClick={() => setPreview(null)}>Cancel</button>
-              {!preview.taskCreated && (
-                <button className="btn btn-primary" onClick={handleCreateTask}>
-                  ✅ Create Task from Email
+              {!preview.task_created ? (
+                <button className="btn btn-primary" onClick={handleCreateTask} disabled={saving}>
+                  {saving ? "Creating..." : "✅ Create Task from Email"}
                 </button>
+              ) : (
+                <div className="alert alert-success" style={{ margin: 0 }}>✅ Task already created from this email.</div>
               )}
-              {preview.taskCreated && <div className="alert alert-success" style={{ margin: 0 }}>✅ Task already created from this email.</div>}
             </div>
           </div>
         </div>
@@ -1003,66 +972,67 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
 }
 
 // ─── Payments & Settings Page ─────────────────────────────────────────────────
-function PaymentsSettings({ user, showToast }) {
+function PaymentsSettings({ user, showToast, paymentMethods: initialPMs = [], setPaymentMethods: setGlobalPMs }) {
   const [tab, setTab] = useState("methods");
-  const [pms, setPMs] = useState(() => DB.paymentMethods.filter(pm => pm.userId === user.id));
-  const [settings, setSettings] = useState(() => DB.users.find(u => u.id === user.id)?.settings || {});
+  const [pms, setPMs] = useState(initialPMs);
   const [addPMModal, setAddPMModal] = useState(false);
   const [newPM, setNewPM] = useState({ type: "credit_card", label: "", last4: "", brand: "" });
-  const [enrolled, setEnrolled] = useState(() => {
-    const userTasks = DB.tasks.filter(t => t.userId === user.id && t.adminService);
-    return userTasks.length > 0 ? ["as1"] : [];
-  });
+  const [savingPM, setSavingPM] = useState(false);
+  const [reminderDays, setReminderDays] = useState(user.reminder_days || [30, 7]);
+  const [notifyEmail, setNotifyEmail] = useState(user.notify_email !== false);
+  const [notifySms, setNotifySms] = useState(user.notify_sms !== false);
+  const [profileName, setProfileName] = useState(user.name || "");
+  const [profilePhone, setProfilePhone] = useState(user.phone || "");
 
-  const refresh = () => setPMs([...DB.paymentMethods.filter(pm => pm.userId === user.id)]);
+  const fetchPMs = async () => {
+    const { data } = await supabase.from("payment_methods").select("*").eq("user_id", user.id);
+    setPMs(data || []);
+    if (setGlobalPMs) setGlobalPMs(data || []);
+  };
+  useEffect(() => { fetchPMs(); }, []);
 
-  const setDefault = (id) => {
-    DB.paymentMethods.forEach(pm => { if (pm.userId === user.id) pm.isDefault = pm.id === id; });
-    const u = DB.users.find(u => u.id === user.id);
-    if (u) u.settings.defaultPayment = id;
-    refresh();
+  const setDefault = async (id) => {
+    await supabase.from("payment_methods").update({ is_default: false }).eq("user_id", user.id);
+    await supabase.from("payment_methods").update({ is_default: true }).eq("id", id);
+    fetchPMs();
     showToast("Default payment method updated!", "success", "Saved");
   };
 
-  const deletePM = (id) => {
-    DB.paymentMethods = DB.paymentMethods.filter(pm => pm.id !== id);
-    refresh();
+  const deletePM = async (id) => {
+    await supabase.from("payment_methods").delete().eq("id", id);
+    fetchPMs();
     showToast("Payment method removed.", "info", "Removed");
   };
 
-  const addPM = () => {
-    if (!newPM.label) return;
-    const pm = { id: uid(), userId: user.id, ...newPM, isDefault: pms.length === 0 };
-    DB.paymentMethods.push(pm);
-    refresh();
+  const addPM = async () => {
+    if (!newPM.label || savingPM) return;
+    setSavingPM(true);
+    await supabase.from("payment_methods").insert({
+      ...newPM, user_id: user.id, is_default: pms.length === 0,
+    });
+    fetchPMs();
+    setSavingPM(false);
     setAddPMModal(false);
     setNewPM({ type: "credit_card", label: "", last4: "", brand: "" });
     showToast("Payment method added!", "success", "Added");
   };
 
-  const saveSettings = () => {
-    const u = DB.users.find(u => u.id === user.id);
-    if (u) u.settings = { ...u.settings, ...settings };
-    showToast("Settings saved!", "success", "Saved");
+  const saveSettings = async () => {
+    await supabase.from("profiles").update({
+      reminder_days: reminderDays,
+      notify_email: notifyEmail,
+      notify_sms: notifySms,
+    }).eq("id", user.id);
+    showToast("Preferences saved!", "success", "Saved");
   };
 
-  const addReminderDay = () => {
-    setSettings(s => ({ ...s, reminderDays: [...(s.reminderDays || []), 14] }));
-  };
-
-  const updateReminderDay = (idx, val) => {
-    const rd = [...(settings.reminderDays || [])];
-    rd[idx] = parseInt(val) || 0;
-    setSettings(s => ({ ...s, reminderDays: rd }));
-  };
-
-  const removeReminderDay = (idx) => {
-    setSettings(s => ({ ...s, reminderDays: (s.reminderDays || []).filter((_, i) => i !== idx) }));
+  const saveProfile = async () => {
+    await supabase.from("profiles").update({ name: profileName, phone: profilePhone }).eq("id", user.id);
+    showToast("Profile saved!", "success", "Saved");
   };
 
   const toggleService = (id) => {
-    setEnrolled(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    showToast(enrolled.includes(id) ? "Service cancelled." : "Service enrolled! Admin team notified.", enrolled.includes(id) ? "info" : "success");
+    showToast("Service enquiry submitted! Admin will contact you shortly.", "success", "Enrolled");
   };
 
   const pmIcons = { credit_card: "💳", ach: "🏦", bank: "🏛️", wire: "🌐", check: "📝" };
@@ -1083,21 +1053,21 @@ function PaymentsSettings({ user, showToast }) {
       {tab === "methods" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Your Payment Methods</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 15 }}>Your Payment Methods</div>
             <button className="btn btn-primary btn-sm" onClick={() => setAddPMModal(true)}><Ico n="plus" size={14} />Add Method</button>
           </div>
           {pms.length === 0 ? (
             <div className="empty-state"><div className="empty-state-icon">💳</div><p>No payment methods added yet.</p></div>
           ) : pms.map(pm => (
-            <div key={pm.id} className={`pm-card ${pm.isDefault ? "default-pm" : ""}`}>
+            <div key={pm.id} className={`pm-card ${pm.is_default ? "default-pm" : ""}`}>
               <div className="pm-icon">{pmIcons[pm.type] || "💳"}</div>
               <div className="pm-info">
                 <div className="pm-label">{pm.label}</div>
                 <div className="pm-type">{pm.type.replace("_", " ")}</div>
               </div>
-              {pm.isDefault && <span className="pm-default-badge">Default</span>}
+              {pm.is_default && <span className="pm-default-badge">Default</span>}
               <div style={{ display: "flex", gap: 6 }}>
-                {!pm.isDefault && <button className="btn btn-ghost btn-sm" onClick={() => setDefault(pm.id)}>Set Default</button>}
+                {!pm.is_default && <button className="btn btn-ghost btn-sm" onClick={() => setDefault(pm.id)}>Set Default</button>}
                 <button className="btn btn-ghost btn-sm btn-icon" onClick={() => deletePM(pm.id)} style={{ color: "var(--high)" }}><Ico n="trash" size={13} /></button>
               </div>
             </div>
@@ -1137,33 +1107,33 @@ function PaymentsSettings({ user, showToast }) {
 
       {tab === "reminders" && (
         <div className="card">
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Reminder Preferences</div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Reminder Preferences</div>
           <div className="form-section" style={{ marginBottom: 14 }}>
             <div className="form-section-title">📅 Default Reminder Schedule</div>
             <p style={{ fontSize: 13, color: "var(--text2)", marginBottom: 14 }}>Set how many days before a due date you want to be reminded. These apply to all new tasks unless overridden.</p>
-            {(settings.reminderDays || [30, 7]).map((d, i) => (
+            {reminderDays.map((d, i) => (
               <div key={i} className="days-input-row">
                 <span style={{ fontSize: 13, color: "var(--text2)", minWidth: 100 }}>{i === 0 ? "1st reminder" : i === 1 ? "2nd reminder" : `Reminder ${i + 1}`}:</span>
-                <input className="days-input" type="number" min="1" max="365" value={d} onChange={e => updateReminderDay(i, e.target.value)} />
+                <input className="days-input" type="number" min="1" max="365" value={d} onChange={e => { const r=[...reminderDays]; r[i]=parseInt(e.target.value)||0; setReminderDays(r); }} />
                 <span style={{ fontSize: 13, color: "var(--text2)" }}>days before due</span>
-                {(settings.reminderDays || []).length > 1 && (
-                  <button className="btn btn-ghost btn-icon-sm" onClick={() => removeReminderDay(i)}><Ico n="close" size={12} /></button>
+                {reminderDays.length > 1 && (
+                  <button className="btn btn-ghost btn-icon-sm" onClick={() => setReminderDays(prev => prev.filter((_,idx)=>idx!==i))}><Ico n="close" size={12} /></button>
                 )}
               </div>
             ))}
-            <button className="btn btn-ghost btn-sm" onClick={addReminderDay} style={{ marginTop: 8 }}><Ico n="plus" size={12} />Add Reminder</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setReminderDays(prev => [...prev, 14])} style={{ marginTop: 8 }}><Ico n="plus" size={12} />Add Reminder</button>
           </div>
           <div className="form-section" style={{ marginBottom: 14 }}>
             <div className="form-section-title">📬 Notification Channels</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {[
-                { key: "notifyEmail", icon: "📧", label: "Email Notifications", desc: `Sent to ${user.email}` },
-                { key: "notifySMS", icon: "📱", label: "SMS Notifications", desc: user.phone ? `Sent to ${user.phone}` : "No phone number set" },
+                { key: "notifyEmail", icon: "📧", label: "Email Notifications", desc: `Sent to ${user.email}`, val: notifyEmail, set: setNotifyEmail },
+                { key: "notifySMS", icon: "📱", label: "SMS Notifications", desc: user.phone ? `Sent to ${user.phone}` : "No phone number set", val: notifySms, set: setNotifySms },
               ].map(item => (
                 <label key={item.key} style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
-                  <div style={{ position: "relative", width: 44, height: 24 }} onClick={() => setSettings(s => ({ ...s, [item.key]: !s[item.key] }))}>
-                    <div style={{ width: 44, height: 24, background: settings[item.key] ? "var(--accent)" : "var(--surface3)", borderRadius: 12, transition: "background 0.2s", border: "1px solid var(--border)" }} />
-                    <div style={{ position: "absolute", top: 3, left: settings[item.key] ? 22 : 3, width: 16, height: 16, background: "#fff", borderRadius: "50%", transition: "left 0.2s" }} />
+                  <div style={{ position: "relative", width: 44, height: 24 }} onClick={() => item.set(!item.val)}>
+                    <div style={{ width: 44, height: 24, background: item.val ? "var(--navy)" : "var(--surface3)", borderRadius: 12, transition: "background 0.2s", border: "1px solid var(--border)" }} />
+                    <div style={{ position: "absolute", top: 3, left: item.val ? 22 : 3, width: 16, height: 16, background: "#fff", borderRadius: "50%", transition: "left 0.2s" }} />
                   </div>
                   <span style={{ fontSize: 18 }}>{item.icon}</span>
                   <div>
@@ -1174,7 +1144,7 @@ function PaymentsSettings({ user, showToast }) {
               ))}
             </div>
           </div>
-          <button className="btn btn-primary" onClick={saveSettings}>Save Preferences</button>
+          <button className="btn btn-primary btn-navy" onClick={saveSettings}>Save Preferences</button>
         </div>
       )}
 
@@ -1184,7 +1154,11 @@ function PaymentsSettings({ user, showToast }) {
             🛡️ Admin Services let our team handle payments on your behalf, so you never miss a due date or incur late fees. You'll receive full transparency via email & SMS.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 16 }}>
-            {DB.adminServices.map(svc => (
+            {[
+              { id: "as1", name: "Auto-Pay on Behalf", description: "Admin team handles payment before due date. You are notified via email and SMS once paid. No late fees, no stress.", price: 4.99, priceNote: "per transaction", icon: "💳", popular: true },
+              { id: "as2", name: "Full Bill Management", description: "We scan, create tasks, set reminders, and pay all your bills monthly. Zero effort required from you.", price: 29.99, priceNote: "per month", icon: "🛡️", popular: false },
+              { id: "as3", name: "Payment Negotiation", description: "Our team negotiates better rates with vendors on your behalf. Save more than the service fee on most bills.", price: 19.99, priceNote: "per negotiation", icon: "🤝", popular: false },
+            ].map(svc => (
               <div key={svc.id} className={`service-card ${enrolled.includes(svc.id) ? "enrolled" : ""}`} onClick={() => toggleService(svc.id)}>
                 {svc.popular && <div className="popular-tag">⭐ Popular</div>}
                 <div className="service-icon">{svc.icon}</div>
@@ -1203,16 +1177,16 @@ function PaymentsSettings({ user, showToast }) {
 
       {tab === "profile" && (
         <div className="card">
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Profile Settings</div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Profile Settings</div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, padding: 20, background: "var(--surface2)", borderRadius: "var(--radius)" }}>
             <div className="avatar avatar-xl" style={{ background: avatarColor(user.name), color: "#fff" }}>{initials(user.name)}</div>
             <div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18 }}>{user.name}</div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 18 }}>{user.name}</div>
               <div style={{ color: "var(--text2)", fontSize: 13 }}>{user.email}</div>
               <div style={{ color: "var(--text3)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.6px", marginTop: 4 }}>{user.role}</div>
             </div>
           </div>
-          <div className="field"><label>Phone Number</label><input defaultValue={user.phone} placeholder="+1-555-0100" /></div>
+          <div className="field"><label>Phone Number</label><input value={profilePhone} onChange={e => setProfilePhone(e.target.value)} placeholder="+1-555-0100" /></div>
           <div className="field"><label>Timezone</label>
             <select defaultValue="America/New_York">
               <option value="America/New_York">Eastern Time (ET)</option>
@@ -1222,7 +1196,7 @@ function PaymentsSettings({ user, showToast }) {
               <option value="UTC">UTC</option>
             </select>
           </div>
-          <button className="btn btn-primary" onClick={() => showToast("Profile updated!", "success", "Saved")}>Save Profile</button>
+          <button className="btn btn-primary" onClick={saveProfile}>Save Profile</button>
         </div>
       )}
     </div>
@@ -1230,8 +1204,9 @@ function PaymentsSettings({ user, showToast }) {
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-function Dashboard({ user, setPage, showToast }) {
-  const [tasks, setTasks] = useState(() => DB.tasks.filter(t => t.userId === user.id));
+function Dashboard({ user, setPage, showToast, paymentMethods = [] }) {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [detailTask, setDetailTask] = useState(null);
   const [search, setSearch] = useState("");
@@ -1239,36 +1214,50 @@ function Dashboard({ user, setPage, showToast }) {
   const [filterPriority, setFilterPriority] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const refresh = () => setTasks([...DB.tasks.filter(t => t.userId === user.id)]);
+  const fetchTasks = async () => {
+    const { data } = await supabase.from("tasks").select("*")
+      .eq("user_id", user.id).order("created_at", { ascending: false });
+    setTasks(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetchTasks(); }, []);
 
-  const handleSave = (form) => {
+  const handleSave = async (form) => {
     if (modal === "new") {
-      DB.tasks.push({ ...form, id: uid(), userId: user.id, source: "manual", adminPaid: false, createdAt: new Date().toISOString() });
+      const { error } = await supabase.from("tasks").insert({
+        ...form, user_id: user.id, admin_paid: false, source: "manual",
+      });
+      if (error) { showToast("Error: " + error.message, "error"); return; }
     } else {
-      const idx = DB.tasks.findIndex(t => t.id === modal.id);
-      if (idx > -1) DB.tasks[idx] = { ...DB.tasks[idx], ...form };
+      const { error } = await supabase.from("tasks").update(form).eq("id", modal.id);
+      if (error) { showToast("Error: " + error.message, "error"); return; }
     }
-    setModal(null); refresh();
+    setModal(null);
     showToast(modal === "new" ? "Task created!" : "Task updated!", "success");
+    fetchTasks();
   };
 
-  const handleDelete = (id) => { DB.tasks = DB.tasks.filter(t => t.id !== id); refresh(); showToast("Task deleted.", "info"); };
+  const handleDelete = async (id) => {
+    await supabase.from("tasks").delete().eq("id", id);
+    showToast("Task deleted.", "info");
+    fetchTasks();
+  };
 
   const stats = {
     total: tasks.length,
     pending: tasks.filter(t => t.status === "pending").length,
-    overdue: tasks.filter(t => isOverdue(t.dueDate) && t.status !== "completed").length,
+    overdue: tasks.filter(t => isOverdue(t.due_date) && t.status !== "completed").length,
     totalDue: tasks.filter(t => t.status !== "completed").reduce((s, t) => s + (t.amount || 0), 0),
-    adminManaged: tasks.filter(t => t.adminService).length,
+    adminManaged: tasks.filter(t => t.admin_service).length,
   };
 
   const urgentTasks = tasks.filter(t => {
-    const d = daysUntil(t.dueDate);
+    const d = daysUntil(t.due_date);
     return t.status !== "completed" && d !== null && d <= 7;
-  }).sort((a, b) => (daysUntil(a.dueDate) || 0) - (daysUntil(b.dueDate) || 0));
+  }).sort((a, b) => (daysUntil(a.due_date) || 0) - (daysUntil(b.due_date) || 0));
 
   const filtered = tasks.filter(t => {
-    if (activeFilter === "overdue" && !(isOverdue(t.dueDate) && t.status !== "completed")) return false;
+    if (activeFilter === "overdue" && !(isOverdue(t.due_date) && t.status !== "completed")) return false;
     if (activeFilter === "pending" && t.status !== "pending") return false;
     if (filterStatus !== "all" && activeFilter === "all" && t.status !== filterStatus) return false;
     if (filterPriority !== "all" && t.priority !== filterPriority) return false;
@@ -1322,19 +1311,19 @@ function Dashboard({ user, setPage, showToast }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {urgentTasks.slice(0, 3).map(t => {
-              const d = daysUntil(t.dueDate);
+              const d = daysUntil(t.due_date);
               return (
                 <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", background: "var(--surface2)", borderRadius: 10, cursor: "pointer", border: `1px solid ${d !== null && d < 0 ? "rgba(255,77,141,0.2)" : d === 0 ? "rgba(245,158,11,0.2)" : "var(--border)"}` }}
                   onClick={() => setDetailTask(t)}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color: d !== null && d < 0 ? "var(--high)" : d === 0 ? "var(--med)" : "var(--text)", minWidth: 40, textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 18, color: d !== null && d < 0 ? "var(--high)" : d === 0 ? "var(--med)" : "var(--text)", minWidth: 40, textAlign: "center" }}>
                     {d !== null && d < 0 ? `${Math.abs(d)}d` : d === 0 ? "NOW" : `${d}d`}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 600, fontSize: 13 }}>{t.title}</div>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 600, fontSize: 13 }}>{t.title}</div>
                     <div style={{ fontSize: 11, color: "var(--text3)" }}>{t.vendor}</div>
                   </div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>{fmtAmt(t.amount)}</div>
-                  <DueBadge dueDate={t.dueDate} status={t.status} />
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 15 }}>{fmtAmt(t.amount)}</div>
+                  <DueBadge dueDate={t.due_date} status={t.status} />
                 </div>
               );
             })}
@@ -1369,17 +1358,17 @@ function Dashboard({ user, setPage, showToast }) {
         ) : filtered.map(t => <TaskRow key={t.id} task={t} onEdit={setModal} onDelete={handleDelete} onView={setDetailTask} />)}
       </div>
 
-      {modal && <TaskModal task={modal === "new" ? null : modal} onSave={handleSave} onClose={() => setModal(null)} user={user} />}
-      {detailTask && <TaskDetailPanel task={detailTask} onClose={() => setDetailTask(null)} onEdit={t => { setDetailTask(null); setModal(t); }} onDelete={handleDelete} onAdminPay={refresh} user={user} showToast={showToast} />}
+      {modal && <TaskModal task={modal === "new" ? null : modal} onSave={handleSave} onClose={() => setModal(null)} user={user} paymentMethods={paymentMethods} />}
+      {detailTask && <TaskDetailPanel task={detailTask} onClose={() => setDetailTask(null)} onEdit={t => { setDetailTask(null); setModal(t); }} onDelete={handleDelete} onAdminPay={fetchTasks} user={user} showToast={showToast} />}
     </div>
   );
 }
 
 // ─── Task Row Component ───────────────────────────────────────────────────────
 function TaskRow({ task, onEdit, onDelete, onView }) {
-  const over = isOverdue(task.dueDate) && task.status !== "completed";
+  const over = isOverdue(task.due_date) && task.status !== "completed";
   return (
-    <div className={`task-card ${over ? "overdue-card" : ""} ${task.adminPaid ? "admin-paid-card" : ""}`} onClick={() => onView(task)}>
+    <div className={`task-card ${over ? "overdue-card" : ""} ${task.admin_paid ? "admin-paid-card" : ""}`} onClick={() => onView(task)}>
       <div className="task-body">
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1388,8 +1377,8 @@ function TaskRow({ task, onEdit, onDelete, onView }) {
             <div className="task-meta">
               <span className={`badge badge-${task.priority}`}>{task.priority}</span>
               <span className={`badge badge-${task.status}`}>{task.status}</span>
-              <DueBadge dueDate={task.dueDate} status={task.status} />
-              {task.adminPaid && <span className="badge badge-admin-paid">✅ Admin Paid</span>}
+              <DueBadge dueDate={task.due_date} status={task.status} />
+              {task.admin_paid && <span className="badge badge-admin-paid">✅ Admin Paid</span>}
               {task.source === "email" && <span className="badge badge-email">📧 Email</span>}
               {(task.tags || []).slice(0, 2).map(t => <span key={t} className="chip">{t}</span>)}
             </div>
@@ -1409,32 +1398,48 @@ function TaskRow({ task, onEdit, onDelete, onView }) {
 
 // ─── Reminders Page ───────────────────────────────────────────────────────────
 function RemindersPage({ user, showToast }) {
-  const [reminders, setReminders] = useState([...DB.reminders.filter(r => r.userId === user.id)]);
-  const [notifications, setNotifications] = useState([...DB.notifications.filter(n => n.userId === user.id)]);
+  const [tasks, setTasks] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const upcomingReminders = DB.tasks
-    .filter(t => t.userId === user.id && t.status !== "completed" && t.dueDate)
-    .flatMap(t => (t.reminders || []).map(r => {
-      const reminderDate = new Date(new Date(t.dueDate + "T12:00:00").getTime() - r.days * 86400000).toISOString().split("T")[0];
-      return { taskId: t.id, taskTitle: t.title, vendor: t.vendor, amount: t.amount, days: r.days, reminderDate, dueDate: t.dueDate, sent: r.sent };
+  const fetchAll = async () => {
+    const [{ data: tasksData }, { data: notifData }] = await Promise.all([
+      supabase.from("tasks").select("*").eq("user_id", user.id).eq("status", "pending"),
+      supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+    ]);
+    setTasks(tasksData || []);
+    setNotifications(notifData || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetchAll(); }, []);
+
+  const upcomingReminders = tasks
+    .filter(t => t.due_date)
+    .flatMap(t => (t.reminder_days || []).map(days => {
+      const reminderDate = new Date(new Date(t.due_date + "T12:00:00").getTime() - days * 86400000).toISOString().split("T")[0];
+      return { taskId: t.id, taskTitle: t.title, vendor: t.vendor, amount: t.amount, days, reminderDate, dueDate: t.due_date };
     }))
     .sort((a, b) => a.reminderDate.localeCompare(b.reminderDate));
 
-  const simulateSend = () => {
-    const fakeReminder = {
-      id: uid(), taskId: "t1", userId: user.id, type: "email",
-      sentAt: todayStr(), message: "AWS Cloud Services invoice due in 7 days - $847.32", delivered: true
-    };
-    DB.reminders.push(fakeReminder);
-    setReminders([...DB.reminders.filter(r => r.userId === user.id)]);
+  const simulateSend = async () => {
+    await supabase.from("notifications").insert({
+      user_id: user.id, type: "reminder",
+      title: "Test Reminder",
+      message: `Email reminder sent to ${user.email}. SMS sent to ${user.phone || "your phone"}.`,
+    });
     showToast("📧 Reminder email sent to " + user.email, "email", "Email Sent");
     setTimeout(() => showToast("📱 SMS reminder sent to " + (user.phone || "+1-555-0101"), "sms", "SMS Sent"), 800);
+    fetchAll();
   };
 
-  const markRead = (id) => {
-    const n = DB.notifications.find(x => x.id === id);
-    if (n) n.read = true;
-    setNotifications([...DB.notifications.filter(n => n.userId === user.id)]);
+  const markRead = async (id) => {
+    await supabase.from("notifications").update({ read: true }).eq("id", id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllRead = async () => {
+    await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   return (
@@ -1460,7 +1465,7 @@ function RemindersPage({ user, showToast }) {
                   <div style={{ fontSize: 11, color: "var(--text3)" }}>{r.days} days before due · {fmtDate(r.reminderDate)}</div>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13 }}>{fmtAmt(r.amount)}</div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 13 }}>{fmtAmt(r.amount)}</div>
                   <div style={{ fontSize: 10, color: r.sent ? "var(--accent3)" : daysToReminder !== null && daysToReminder < 0 ? "var(--high)" : "var(--text3)" }}>
                     {r.sent ? "Sent" : daysToReminder !== null && daysToReminder < 0 ? "Overdue" : `In ${daysToReminder}d`}
                   </div>
@@ -1494,7 +1499,7 @@ function RemindersPage({ user, showToast }) {
         <div className="card-header">
           <div className="card-title"><Ico n="bell" size={16} />In-App Notifications</div>
           {notifications.some(n => !n.read) && (
-            <button className="btn btn-ghost btn-sm" onClick={() => { DB.notifications.forEach(n => { if (n.userId === user.id) n.read = true; }); setNotifications([...DB.notifications.filter(n => n.userId === user.id)]); }}>
+            <button className="btn btn-ghost btn-sm" onClick={markAllRead}>
               Mark All Read
             </button>
           )}
@@ -1519,7 +1524,9 @@ function RemindersPage({ user, showToast }) {
 
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
 function AdminPanel({ user, showToast }) {
-  const [tasks, setTasks] = useState([...DB.tasks]);
+  const [tasks, setTasks] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterUser, setFilterUser] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -1527,11 +1534,21 @@ function AdminPanel({ user, showToast }) {
   const [modal, setModal] = useState(null);
   const [tab, setTab] = useState("tasks");
 
-  const refresh = () => setTasks([...DB.tasks]);
-  const regularUsers = DB.users.filter(u => u.role !== "admin");
+  const fetchAll = async () => {
+    const [{ data: tasksData }, { data: usersData }] = await Promise.all([
+      supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*"),
+    ]);
+    setTasks(tasksData || []);
+    setUsers(usersData || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetchAll(); }, []);
+
+  const regularUsers = users.filter(u => u.role !== "admin");
 
   const filtered = tasks.filter(t => {
-    if (filterUser !== "all" && t.userId !== filterUser) return false;
+    if (filterUser !== "all" && t.user_id !== filterUser) return false;
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !(t.vendor || "").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -1540,33 +1557,33 @@ function AdminPanel({ user, showToast }) {
   const stats = {
     total: tasks.length,
     pending: tasks.filter(t => t.status === "pending").length,
-    overdue: tasks.filter(t => isOverdue(t.dueDate) && t.status !== "completed").length,
-    adminManaged: tasks.filter(t => t.adminService && !t.adminPaid).length,
+    overdue: tasks.filter(t => isOverdue(t.due_date) && t.status !== "completed").length,
+    adminManaged: tasks.filter(t => t.admin_service && !t.admin_paid).length,
     totalPending: tasks.filter(t => t.status !== "completed").reduce((s, t) => s + (t.amount || 0), 0),
   };
 
-  const handleAdminPay = (task) => {
-    const idx = DB.tasks.findIndex(t => t.id === task.id);
-    if (idx > -1) {
-      DB.tasks[idx].adminPaid = true;
-      DB.tasks[idx].adminPaidAt = new Date().toISOString();
-      DB.tasks[idx].adminPaidBy = user.id;
-      DB.tasks[idx].status = "completed";
-    }
-    const notification = { id: uid(), userId: task.userId, type: "payment", title: "Payment Processed by Admin", message: `Your ${task.vendor} payment of ${fmtAmt(task.amount)} has been processed. Due ${fmtDate(task.dueDate)}.`, createdAt: new Date().toISOString(), read: false };
-    DB.notifications.push(notification);
-    showToast(`✅ Paid ${fmtAmt(task.amount)} for ${DB.users.find(u => u.id === task.userId)?.name}`, "payment", "Payment Sent");
-    refresh();
+  const handleAdminPay = async (task) => {
+    await supabase.from("tasks").update({
+      admin_paid: true, admin_paid_at: new Date().toISOString(),
+      admin_paid_by: user.id, status: "completed",
+    }).eq("id", task.id);
+    const taskUser = users.find(u => u.id === task.user_id);
+    await supabase.from("notifications").insert({
+      user_id: task.user_id, type: "payment",
+      title: "Payment Processed by Admin",
+      message: `Your ${task.vendor} payment of ${fmtAmt(task.amount)} has been processed.`,
+    });
+    showToast(`✅ Paid ${fmtAmt(task.amount)} for ${taskUser?.name || "user"}`, "payment", "Payment Sent");
+    fetchAll();
   };
 
-  const handleDelete = (id) => { DB.tasks = DB.tasks.filter(t => t.id !== id); refresh(); };
-  const handleSave = (form) => {
-    const idx = DB.tasks.findIndex(t => t.id === modal.id);
-    if (idx > -1) DB.tasks[idx] = { ...DB.tasks[idx], ...form };
-    setModal(null); refresh();
+  const handleDelete = async (id) => { await supabase.from("tasks").delete().eq("id", id); fetchAll(); };
+  const handleSave = async (form) => {
+    await supabase.from("tasks").update(form).eq("id", modal.id);
+    setModal(null); fetchAll();
   };
 
-  const adminQueue = tasks.filter(t => t.adminService && !t.adminPaid && t.status !== "completed");
+  const adminQueue = tasks.filter(t => t.admin_service && !t.admin_paid && t.status !== "completed");
 
   return (
     <div>
@@ -1594,7 +1611,7 @@ function AdminPanel({ user, showToast }) {
             </div>
             <select className="flt-select" value={filterUser} onChange={e => setFilterUser(e.target.value)}>
               <option value="all">All Users</option>
-              {regularUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {regularUsers.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
             </select>
             <select className="flt-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
               <option value="all">All Status</option>
@@ -1617,13 +1634,13 @@ function AdminPanel({ user, showToast }) {
               </thead>
               <tbody>
                 {filtered.map(t => {
-                  const taskUser = DB.users.find(u => u.id === t.userId);
+                  const taskUser = users.find(u => u.id === t.user_id);
                   return (
                     <tr key={t.id} onClick={() => setDetailTask(t)}>
                       <td>
                         <div style={{ fontWeight: 600, fontSize: 13 }}>{t.title}</div>
-                        {t.adminService && !t.adminPaid && <span className="badge" style={{ background: "rgba(245,158,11,0.12)", color: "var(--med)", fontSize: 9 }}>🛡️ Admin Managed</span>}
-                        {t.adminPaid && <span className="badge badge-admin-paid" style={{ fontSize: 9 }}>✅ Paid</span>}
+                        {t.admin_service && !t.admin_paid && <span className="badge" style={{ background: "rgba(245,158,11,0.12)", color: "var(--med)", fontSize: 9 }}>🛡️ Admin Managed</span>}
+                        {t.admin_paid && <span className="badge badge-admin-paid" style={{ fontSize: 9 }}>✅ Paid</span>}
                       </td>
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -1632,12 +1649,12 @@ function AdminPanel({ user, showToast }) {
                         </div>
                       </td>
                       <td style={{ fontSize: 12, color: "var(--text2)" }}>{t.vendor || "—"}</td>
-                      <td style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14 }}>{fmtAmt(t.amount)}</td>
-                      <td><DueBadge dueDate={t.dueDate} status={t.status} /></td>
+                      <td style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 14 }}>{fmtAmt(t.amount)}</td>
+                      <td><DueBadge dueDate={t.due_date} status={t.status} /></td>
                       <td><span className={`badge badge-${t.status}`}>{t.status}</span></td>
                       <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: "flex", gap: 5 }}>
-                          {t.adminService && !t.adminPaid && (
+                          {t.admin_service && !t.admin_paid && (
                             <button className="btn btn-success btn-xs" onClick={() => handleAdminPay(t)}>💳 Pay</button>
                           )}
                           <button className="btn btn-ghost btn-xs" onClick={() => setModal(t)}><Ico n="edit" size={12} /></button>
@@ -1661,22 +1678,22 @@ function AdminPanel({ user, showToast }) {
           {adminQueue.length === 0 ? (
             <div className="empty-state"><div className="empty-state-icon">✅</div><p>No pending payments in admin queue!</p></div>
           ) : adminQueue.map(t => {
-            const taskUser = DB.users.find(u => u.id === t.userId);
-            const days = daysUntil(t.dueDate);
+            const taskUser = users.find(u => u.id === t.user_id);
+            const days = daysUntil(t.due_date);
             return (
               <div key={t.id} style={{ background: "var(--surface)", border: `2px solid ${days !== null && days <= 7 ? "rgba(255,77,141,0.3)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: 20, marginBottom: 12, display: "flex", gap: 16, alignItems: "center" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{t.title}</div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{t.title}</div>
                   <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 8 }}>
-                    {taskUser?.name} · {t.vendor} · Due {fmtDate(t.dueDate)}
+                    {taskUser?.name} · {t.vendor} · Due {fmtDate(t.due_date)}
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <span className={`badge badge-${t.priority}`}>{t.priority}</span>
-                    <DueBadge dueDate={t.dueDate} status={t.status} />
+                    <DueBadge dueDate={t.due_date} status={t.status} />
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, marginBottom: 8 }}>{fmtAmt(t.amount)}</div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 22, marginBottom: 8 }}>{fmtAmt(t.amount)}</div>
                   <button className="btn btn-success" onClick={() => handleAdminPay(t)}>💳 Process Payment</button>
                 </div>
               </div>
@@ -1693,7 +1710,7 @@ function AdminPanel({ user, showToast }) {
             </thead>
             <tbody>
               {regularUsers.map(u => {
-                const userTasks = DB.tasks.filter(t => t.userId === u.id);
+                const userTasks = tasks.filter(t => t.user_id === u.id);
                 const pendingAmt = userTasks.filter(t => t.status !== "completed").reduce((s, t) => s + (t.amount || 0), 0);
                 return (
                   <tr key={u.id}>
@@ -1708,9 +1725,9 @@ function AdminPanel({ user, showToast }) {
                     </td>
                     <td style={{ fontSize: 12, color: "var(--text2)" }}>{u.email}</td>
                     <td style={{ fontSize: 12, color: "var(--text2)" }}>{u.phone || "—"}</td>
-                    <td><span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>{userTasks.length}</span></td>
-                    <td style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, color: pendingAmt > 0 ? "var(--med)" : "var(--text3)" }}>{fmtAmt(pendingAmt)}</td>
-                    <td style={{ fontSize: 12, color: "var(--text3)" }}>{fmtDate(u.createdAt)}</td>
+                    <td><span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>{userTasks.length}</span></td>
+                    <td style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: pendingAmt > 0 ? "var(--med)" : "var(--text3)" }}>{fmtAmt(pendingAmt)}</td>
+                    <td style={{ fontSize: 12, color: "var(--text3)" }}>{fmtDate(u.created_at)}</td>
                   </tr>
                 );
               })}
@@ -1719,8 +1736,8 @@ function AdminPanel({ user, showToast }) {
         </div>
       )}
 
-      {detailTask && <TaskDetailPanel task={detailTask} onClose={() => setDetailTask(null)} onEdit={t => { setDetailTask(null); setModal(t); }} onDelete={handleDelete} onAdminPay={refresh} user={user} showToast={showToast} />}
-      {modal && <TaskModal task={modal} onSave={handleSave} onClose={() => setModal(null)} user={user} />}
+      {detailTask && <TaskDetailPanel task={detailTask} onClose={() => setDetailTask(null)} onEdit={t => { setDetailTask(null); setModal(t); }} onDelete={handleDelete} onAdminPay={fetchAll} user={user} showToast={showToast} />}
+      {modal && <TaskModal task={modal} onSave={handleSave} onClose={() => setModal(null)} user={user} paymentMethods={[]} />}
     </div>
   );
 }
@@ -1730,6 +1747,7 @@ export default function App({ onBackToLanding }) {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("dashboard");
   const [authLoading, setAuthLoading] = useState(true);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const { toasts, show: showToast } = useToast();
 
   useEffect(() => {
@@ -1739,6 +1757,8 @@ export default function App({ onBackToLanding }) {
         if (profile) {
           setUser({ ...session.user, ...profile });
           setPage(profile.role === "admin" ? "admin" : "dashboard");
+          const { data: pms } = await supabase.from("payment_methods").select("*").eq("user_id", session.user.id);
+          setPaymentMethods(pms || []);
         }
       }
       setAuthLoading(false);
@@ -1749,13 +1769,32 @@ export default function App({ onBackToLanding }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = (u) => { setUser(u); setPage(u.role === "admin" ? "admin" : "dashboard"); };
-  const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setPage("dashboard"); };
+  const handleLogin = async (u) => {
+    setUser(u);
+    setPage(u.role === "admin" ? "admin" : "dashboard");
+    const { data: pms } = await supabase.from("payment_methods").select("*").eq("user_id", u.id);
+    setPaymentMethods(pms || []);
+  };
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null); setPage("dashboard"); setPaymentMethods([]);
+  };
+
+  if (authLoading) return (
+    <>
+      <style>{css}</style>
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--navy)",flexDirection:"column",gap:16}}>
+        <div style={{width:40,height:40,border:"3px solid rgba(255,255,255,0.2)",borderTopColor:"var(--gold)",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+        <div style={{color:"rgba(255,255,255,0.6)",fontSize:14,fontFamily:"DM Sans,sans-serif"}}>Loading LifeOps Pro...</div>
+      </div>
+    </>
+  );
 
   if (!user) return <><style>{css}</style><AuthPage onLogin={handleLogin} /></>;
 
-  const unreadCount = DB.notifications.filter(n => n.userId === user.id && !n.read).length;
-  const adminQueueCount = user.role === "admin" ? DB.tasks.filter(t => t.adminService && !t.adminPaid && t.status !== "completed").length : 0;
+  const unreadCount = 0; // live count fetched per-page
+  const adminQueueCount = 0; // live count fetched in AdminPanel
 
   const userNav = [
     { id: "dashboard", icon: "dashboard", label: "Dashboard" },
@@ -1840,11 +1879,11 @@ export default function App({ onBackToLanding }) {
               <p className="page-sub">{pageSub}</p>
             </div>
           </div>
-          {page === "dashboard" && <Dashboard user={user} setPage={setPage} showToast={showToast} />}
-          {page === "tasks" && <TasksPage user={user} showToast={showToast} />}
+          {page === "dashboard" && <Dashboard user={user} setPage={setPage} showToast={showToast} paymentMethods={paymentMethods} />}
+          {page === "tasks" && <TasksPage user={user} showToast={showToast} paymentMethods={paymentMethods} />}
           {page === "email" && <EmailScanner user={user} onTaskCreated={() => {}} showToast={showToast} />}
           {page === "reminders" && <RemindersPage user={user} showToast={showToast} />}
-          {page === "payments" && <PaymentsSettings user={user} showToast={showToast} />}
+          {page === "payments" && <PaymentsSettings user={user} showToast={showToast} paymentMethods={paymentMethods} setPaymentMethods={setPaymentMethods} />}
           {page === "admin" && user.role === "admin" && <AdminPanel user={user} showToast={showToast} />}
         </main>
       </div>
@@ -1853,8 +1892,9 @@ export default function App({ onBackToLanding }) {
 }
 
 // ─── Full Tasks Page ──────────────────────────────────────────────────────────
-function TasksPage({ user, showToast }) {
-  const [tasks, setTasks] = useState(() => DB.tasks.filter(t => t.userId === user.id));
+function TasksPage({ user, showToast, paymentMethods = [] }) {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [detailTask, setDetailTask] = useState(null);
   const [search, setSearch] = useState("");
@@ -1862,20 +1902,34 @@ function TasksPage({ user, showToast }) {
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
 
-  const refresh = () => setTasks([...DB.tasks.filter(t => t.userId === user.id)]);
+  const fetchTasks = async () => {
+    const { data } = await supabase.from("tasks").select("*")
+      .eq("user_id", user.id).order("due_date", { ascending: true, nullsFirst: false });
+    setTasks(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetchTasks(); }, []);
 
-  const handleSave = (form) => {
+  const handleSave = async (form) => {
     if (modal === "new") {
-      DB.tasks.push({ ...form, id: uid(), userId: user.id, source: "manual", adminPaid: false, createdAt: new Date().toISOString() });
+      const { error } = await supabase.from("tasks").insert({
+        ...form, user_id: user.id, source: "manual", admin_paid: false,
+      });
+      if (error) { showToast("Error: " + error.message, "error"); return; }
     } else {
-      const idx = DB.tasks.findIndex(t => t.id === modal.id);
-      if (idx > -1) DB.tasks[idx] = { ...DB.tasks[idx], ...form };
+      const { error } = await supabase.from("tasks").update(form).eq("id", modal.id);
+      if (error) { showToast("Error: " + error.message, "error"); return; }
     }
-    setModal(null); refresh();
+    setModal(null);
     showToast(modal === "new" ? "Task created!" : "Task updated!", "success");
+    fetchTasks();
   };
 
-  const handleDelete = (id) => { DB.tasks = DB.tasks.filter(t => t.id !== id); refresh(); showToast("Task deleted.", "info"); };
+  const handleDelete = async (id) => {
+    await supabase.from("tasks").delete().eq("id", id);
+    showToast("Task deleted.", "info");
+    fetchTasks();
+  };
 
   const filtered = tasks.filter(t => {
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
@@ -1922,7 +1976,7 @@ function TasksPage({ user, showToast }) {
       {filtered.length > 0 && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: "var(--surface2)", borderRadius: 10, marginBottom: 16, fontSize: 13 }}>
           <span style={{ color: "var(--text2)" }}>{filtered.length} tasks shown</span>
-          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, color: "var(--accent)" }}>Total: {fmtAmt(totalFiltered)}</span>
+          <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: "var(--navy)" }}>Total: {fmtAmt(totalFiltered)}</span>
         </div>
       )}
 
@@ -1932,8 +1986,8 @@ function TasksPage({ user, showToast }) {
         ) : filtered.map(t => <TaskRow key={t.id} task={t} onEdit={setModal} onDelete={handleDelete} onView={setDetailTask} />)}
       </div>
 
-      {modal && <TaskModal task={modal === "new" ? null : modal} onSave={handleSave} onClose={() => setModal(null)} user={user} />}
-      {detailTask && <TaskDetailPanel task={detailTask} onClose={() => setDetailTask(null)} onEdit={t => { setDetailTask(null); setModal(t); }} onDelete={handleDelete} onAdminPay={refresh} user={user} showToast={showToast} />}
+      {modal && <TaskModal task={modal === "new" ? null : modal} onSave={handleSave} onClose={() => setModal(null)} user={user} paymentMethods={paymentMethods} />}
+      {detailTask && <TaskDetailPanel task={detailTask} onClose={() => setDetailTask(null)} onEdit={t => { setDetailTask(null); setModal(t); }} onDelete={handleDelete} onAdminPay={fetchTasks} user={user} showToast={showToast} />}
     </div>
   );
 }
