@@ -777,6 +777,7 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
   const [preview, setPreview] = useState(null);
   const [extractedTask, setExtractedTask] = useState(null);
   const [saving, setSaving] = useState(false);
+  const connectedProviders = []; // OAuth not yet connected — placeholder
 
   const fetchEmails = async () => {
     try {
@@ -867,8 +868,8 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
                 {connectedProviders.includes(p.id) && <div style={{ fontSize: 11, color: "var(--teal)", marginTop: 2 }}>✓ Connected</div>}
               </div>
               {!connectedProviders.includes(p.id) ? (
-                <button className="btn btn-primary btn-sm" onClick={() => connectProvider(p.id)} disabled={!!connecting}>
-                  {connecting === p.id ? "Connecting..." : "Connect"}
+                <button className="btn btn-primary btn-sm" onClick={() => showToast(`${p.label} OAuth coming soon!`, "info")}>
+                  Connect
                 </button>
               ) : (
                 <button className="btn btn-ghost btn-sm" onClick={simulateScan} disabled={scanning}>
