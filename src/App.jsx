@@ -511,7 +511,14 @@ function TaskModal({ task, onSave, onClose, user, paymentMethods = [] }) {
 
   const handleSave = () => {
     if (!form.title) return;
-    onSave({ ...form, amount: form.amount ? parseFloat(form.amount) : null });
+    // payment_method_id must be a UUID or null — never a plain string like "credit_card"
+    const isValidUUID = v => v && /^[0-9a-f-]{36}$/i.test(v);
+    const cleanForm = {
+      ...form,
+      amount: form.amount ? parseFloat(form.amount) : null,
+      payment_method_id: isValidUUID(form.payment_method_id) ? form.payment_method_id : null,
+    };
+    onSave(cleanForm);
   };
 
   const pmIcons = { credit_card: "💳", ach: "🏦", bank: "🏛️", wire: "🌐", check: "📝" };
@@ -569,12 +576,11 @@ function TaskModal({ task, onSave, onClose, user, paymentMethods = [] }) {
             <div className="form-section-title">💳 Payment & Reminders</div>
             <div className="field"><label>Payment Method</label>
               <select value={form.payment_method_id} onChange={e => f("payment_method_id", e.target.value)}>
-                <option value="">— Select payment method —</option>
+                <option value="">— No payment method —</option>
                 {paymentMethods.map(pm => <option key={pm.id} value={pm.id}>{pmIcons[pm.type] || "💳"} {pm.label}{pm.is_default ? " (Default)" : ""}</option>)}
-                <option value="credit_card">💳 Credit Card (generic)</option>
-                <option value="ach">🏦 ACH / Bank Transfer</option>
-                <option value="wire">🌐 Wire Transfer</option>
-                <option value="check">📝 Check</option>
+                {paymentMethods.length === 0 && (
+                  <option value="" disabled>Add a payment method in Settings first</option>
+                )}
               </select>
             </div>
             <div style={{ marginBottom: 10 }}>
