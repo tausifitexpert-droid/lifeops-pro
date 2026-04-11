@@ -33,12 +33,18 @@ jobs:
       - name: Check secrets are available
         run: |
           if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
-            echo "WARNING: VITE_SUPABASE_ANON_KEY secret is not set!"
+            echo "WARNING: VITE_SUPABASE_ANON_KEY is NOT set"
           else
             echo "OK: VITE_SUPABASE_ANON_KEY is set (length: ${#VITE_SUPABASE_ANON_KEY})"
           fi
+          if [ -z "$VITE_GMAIL_CLIENT_ID" ]; then
+            echo "WARNING: VITE_GMAIL_CLIENT_ID is NOT set"
+          else
+            echo "OK: VITE_GMAIL_CLIENT_ID is set (length: ${#VITE_GMAIL_CLIENT_ID})"
+          fi
         env:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GMAIL_CLIENT_ID: ${{ secrets.VITE_GMAIL_CLIENT_ID }}
 
       - name: Build
         env:
