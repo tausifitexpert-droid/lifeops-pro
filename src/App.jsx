@@ -2017,56 +2017,51 @@ export default function App({ onBackToLanding }) {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const { toasts, show: showToast } = useToast();
 
-  // Restore user from Supabase profile
-  const restoreUser = async (sessionUser) => {
-    try {
-      const { data: profile } = await supabase
-        .from("profiles").select("*").eq("id", sessionUser.id).single();
-      if (profile) {
-        setUser({ ...sessionUser, ...profile });
-        setPage(profile.role === "admin" ? "admin" : "dashboard");
-        const { data: pms } = await supabase
-          .from("payment_methods").select("*").eq("user_id", sessionUser.id);
-        setPaymentMethods(pms || []);
-      } else {
-        setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
-      }
-    } catch (err) {
-      console.error("restoreUser error:", err);
-      // Still set user so they don't get logged out
-      setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
-    }
-  };
-
   useEffect(() => {
-    // 1. Check for existing session on mount
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+    let mounted = true;
+
+    const restoreUser = async (sessionUser) => {
       try {
-        if (error) console.error("getSession error:", error);
-        if (session?.user) {
-          await restoreUser(session.user);
+        const { data: profile } = await supabase
+          .from("profiles").select("*").eq("id", sessionUser.id).single();
+        if (!mounted) return;
+        if (profile) {
+          setUser({ ...sessionUser, ...profile });
+          setPage(prev => prev === "dashboard" ? (profile.role === "admin" ? "admin" : "dashboard") : prev);
+          const { data: pms } = await supabase
+            .from("payment_methods").select("*").eq("user_id", sessionUser.id);
+          setPaymentMethods(pms || []);
+        } else {
+          setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
         }
-      } finally {
-        setAuthLoading(false);
+      } catch (err) {
+        console.error("restoreUser error:", err);
+        if (mounted) setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
       }
+    };
+
+    // Check session once on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      if (session?.user) {
+        await restoreUser(session.user);
+      }
+      if (mounted) setAuthLoading(false);
     });
 
-    // 2. Listen for auth changes (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth event:", event);
-      if (event === "SIGNED_IN" && session?.user) {
-        await restoreUser(session.user);
-        setAuthLoading(false);
-      } else if (event === "SIGNED_OUT") {
+    // Only handle explicit sign out — don't re-run restoreUser on every event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
         setUser(null);
         setPage("dashboard");
         setPaymentMethods([]);
-      } else if (event === "TOKEN_REFRESHED" && session?.user) {
-        // Token refreshed silently — update session but keep current page
-        setUser(prev => prev ? { ...prev, ...session.user } : null);
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogin = async (u) => {

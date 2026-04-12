@@ -7,9 +7,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storageKey: 'lifeops-auth-v1',
+    detectSessionInUrl: false,
+    storageKey: 'lifeops-auth-v2',
     storage: window.localStorage,
-    flowType: 'pkce',
   },
 })
