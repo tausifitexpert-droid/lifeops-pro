@@ -23,27 +23,36 @@ const scanEmailForTask = (email) => {
   const fullText = subject + " " + body;
   const fromEmail = email.from_email || email.from || "";
 
-  // ── Vendor: extract from subject line (more accurate than domain) ─────────
+  // ── Vendor: collect consecutive proper nouns from subject ────────────────
   const SKIP_WORDS = new Set([
     "Your","The","A","An","For","Of","In","On","At","To","And","Or","But",
     "Is","Are","Was","Were","Be","Been","Have","Has","Had","Will","Would",
     "Can","Could","Should","May","Might","Account","Bill","Invoice","Payment",
-    "Natural","Gas","Ready","Please","Dear","Hello","Hi","Thank","Thanks",
+    "Natural","Gas","Please","Dear","Hello","Hi","Thank","Thanks",
     "From","January","February","March","April","June","July","August",
     "September","October","November","December","Jan","Feb","Mar","Apr",
-    "Jun","Jul","Aug","Sep","Oct","Nov","Dec","New","My","Our","You",
-    "This","That","With","We","Us","Service","Services","Email","Notice",
+    "Jun","Jul","Aug","Sep","Oct","Nov","Dec","My","Our","You",
+    "This","That","With","We","Us","Email","Notice","Ready","e",
   ]);
   let vendor = "";
   const subjectWords = subject.split(/\s+/);
+  const vendorParts = [];
+  let collecting = false;
   for (const w of subjectWords) {
     const clean = w.replace(/[^A-Za-z0-9]/g, "");
-    if (clean && clean[0] === clean[0].toUpperCase() && clean[0] !== clean[0].toLowerCase()
-        && !SKIP_WORDS.has(clean) && clean.length > 2) {
-      vendor = clean;
-      break;
+    const isProper = clean.length > 1
+      && clean[0] === clean[0].toUpperCase()
+      && clean[0] !== clean[0].toLowerCase()
+      && !SKIP_WORDS.has(clean);
+    if (isProper) {
+      collecting = true;
+      vendorParts.push(clean);
+      if (vendorParts.length >= 4) break; // max 4 words
+    } else if (collecting) {
+      break; // stop at first non-proper word after collecting
     }
   }
+  vendor = vendorParts.join(" ");
   // Fallback to domain if subject gives nothing
   if (!vendor) {
     const domainMatch = fromEmail.match(/@(?:[^@]+\.)?([^.@]+)\.[a-z]{2,}$/i);
