@@ -103,12 +103,12 @@ const scanEmailForTask = (email) => {
   }
   // Full month name anywhere: "April 23, 2026"
   if (!due_date) {
-    const all = fullText.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*\d{4}/gi) || [];
+    const all = fullText.match(/\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*20\d{2}/gi) || [];
     for (const m of all) { due_date = tryDate(m); if (due_date) break; }
   }
   // Short month: "Apr 23, 2026"
   if (!due_date) {
-    const all = fullText.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s+\d{1,2},?\s*\d{4}/gi) || [];
+    const all = fullText.match(/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s+\d{1,2},?\s*20\d{2}/gi) || [];
     for (const m of all) { due_date = tryDate(m); if (due_date) break; }
   }
   // ISO: "2026-04-23"
