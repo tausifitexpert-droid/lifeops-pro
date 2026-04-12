@@ -888,7 +888,11 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
             "Authorization": `Bearer ${session.access_token}`,
             "apikey": anonKey,
           },
-          body: JSON.stringify({ action: "connect", code, provider, redirect_uri: redirectUri }),
+          body: JSON.stringify({
+            action: "connect", code, provider,
+            redirect_uri: redirectUri,
+            user_id: session.user.id,
+          }),
         });
         const result = await resp.json();
         console.log("Edge Function result:", JSON.stringify(result));
