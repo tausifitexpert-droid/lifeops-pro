@@ -843,6 +843,15 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
+    const errorParam = params.get("error");
+
+    // Show any OAuth error from Google
+    if (errorParam) {
+      window.history.replaceState({}, "", window.location.pathname);
+      showToast(`Google error: ${errorParam}`, "error", "OAuth Error");
+      return;
+    }
+
     if (!code || !state) return;
 
     // Detect provider from state
@@ -853,6 +862,7 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
 
     // Clear URL params immediately
     window.history.replaceState({}, "", window.location.pathname);
+    showToast("Google redirected back ✅ — exchanging code...", "info", "Step 1");
 
     const exchangeCode = async () => {
       setConnecting(provider);
@@ -865,15 +875,18 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
           if (data?.session?.access_token) { session = data.session; break; }
           await new Promise(r => setTimeout(r, 500));
         }
-        if (!session) throw new Error("Not logged in. Please log in and try again.");
+        if (!session) throw new Error("Session not found — please log in first, then connect Gmail.");
+        showToast("Session found ✅ — calling Edge Function...", "info", "Step 2");
 
         const edgeUrl = "https://vqxuuswirettloxbeudp.supabase.co/functions/v1/fetch-emails";
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const redirectUri = `${window.location.origin}${window.location.pathname}`;
         const resp = await fetch(edgeUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${session.access_token}`,
+            "apikey": anonKey,
           },
           body: JSON.stringify({ action: "connect", code, provider, redirect_uri: redirectUri }),
         });
@@ -882,7 +895,7 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
         showToast(`✅ ${result.count} new emails imported from ${provider === "gmail" ? "Gmail" : "Outlook"}!`, "success", "Connected");
         fetchEmails();
       } catch (err) {
-        showToast(`Connection failed: ${err.message}`, "error", "Error");
+        showToast(`Step failed: ${err.message}`, "error", "Connection Error");
         console.error("OAuth exchange error:", err);
       } finally {
         setConnecting(null);
