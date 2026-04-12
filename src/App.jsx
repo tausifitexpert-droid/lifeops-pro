@@ -774,10 +774,13 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [connecting, setConnecting] = useState(null);
+  const [connectedProviders, setConnectedProviders] = useState([]);
   const [preview, setPreview] = useState(null);
   const [extractedTask, setExtractedTask] = useState(null);
   const [saving, setSaving] = useState(false);
-  const connectedProviders = []; // OAuth not yet connected — placeholder
+
+  const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-emails`;
 
   const fetchEmails = async () => {
     try {
@@ -785,6 +788,9 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
         .eq("user_id", user.id).order("date", { ascending: false });
       if (error) console.error("fetchEmails error:", error);
       setEmails(data || []);
+      // Detect which providers are already connected
+      const providers = [...new Set((data || []).map(e => e.provider).filter(p => p !== "manual"))];
+      setConnectedProviders(providers);
     } catch (err) {
       console.error("EmailScanner fetch error:", err);
     } finally {
@@ -793,16 +799,116 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
   };
   useEffect(() => { fetchEmails(); }, []);
 
-  const simulateScan = async () => {
-    setScanning(true);
-    showToast("Scanning your inbox for payment-related emails...", "email", "Scanning");
-    await new Promise(r => setTimeout(r, 1800));
-    await supabase.from("emails").update({ scanned: true }).eq("user_id", user.id).eq("scanned", false);
-    setScanning(false);
-    fetchEmails();
-    showToast("Scan complete! Review emails to create tasks.", "success", "Scan Complete");
+  // ── OAuth connect ─────────────────────────────────────────────────────────
+  const connectProvider = async (provider) => {
+    // Client ID is public (not secret) - safe to use as fallback
+    const gmailClientId = import.meta.env.VITE_GMAIL_CLIENT_ID || "1018727582688-0b22j00b3npmfgmg068o2qrf10malnu9.apps.googleusercontent.com";
+    const outlookClientId = import.meta.env.VITE_OUTLOOK_CLIENT_ID || "";
+    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+
+    if (provider === "gmail") {
+      if (!gmailClientId) {
+        showToast("Gmail Client ID not configured.", "error", "Config Error");
+        return;
+      }
+      const params = new URLSearchParams({
+        client_id: gmailClientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: "https://www.googleapis.com/auth/gmail.readonly",
+        access_type: "offline",
+        prompt: "consent",
+        state: `gmail_oauth_${user.id}`,
+      });
+      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+
+    } else if (provider === "outlook") {
+      if (!outlookClientId) {
+        showToast("Add VITE_OUTLOOK_CLIENT_ID to your GitHub Secrets to enable Outlook.", "warn", "Setup Required");
+        return;
+      }
+      const params = new URLSearchParams({
+        client_id: outlookClientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: "https://graph.microsoft.com/Mail.Read offline_access",
+        state: `outlook_oauth_${user.id}`,
+      });
+      window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+    }
   };
 
+  // ── Handle OAuth callback (runs on page load if ?code= is in URL) ─────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    if (!code || !state) return;
+
+    // Detect provider from state
+    const provider = state.startsWith("gmail_oauth") ? "gmail"
+                   : state.startsWith("outlook_oauth") ? "outlook"
+                   : null;
+    if (!provider) return;
+
+    // Clear URL params immediately
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const exchangeCode = async () => {
+      setConnecting(provider);
+      showToast(`Connecting ${provider === "gmail" ? "Gmail" : "Outlook"}...`, "email", "Connecting");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const redirectUri = `${window.location.origin}${window.location.pathname}`;
+        const resp = await fetch(EDGE_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ action: "connect", code, provider, redirect_uri: redirectUri }),
+        });
+        const result = await resp.json();
+        if (result.error) throw new Error(result.error);
+        showToast(`✅ ${result.count} new emails imported from ${provider === "gmail" ? "Gmail" : "Outlook"}!`, "success", "Connected");
+        fetchEmails();
+      } catch (err) {
+        showToast(`Connection failed: ${err.message}`, "error", "Error");
+      } finally {
+        setConnecting(null);
+      }
+    };
+    exchangeCode();
+  }, []);
+
+  // ── Manual scan (re-scan existing unprocessed emails) ─────────────────────
+  const simulateScan = async () => {
+    setScanning(true);
+    showToast("Scanning emails for payment tasks...", "email", "Scanning");
+    await new Promise(r => setTimeout(r, 1000));
+    await supabase.from("emails").update({ scanned: true })
+      .eq("user_id", user.id).eq("scanned", false);
+    setScanning(false);
+    fetchEmails();
+    showToast("Scan complete! Click any email to create a task.", "success", "Done");
+  };
+
+  // ── Add sample email for testing ──────────────────────────────────────────
+  const addSampleEmail = async () => {
+    const futureDate = new Date(Date.now() + 20 * 86400000).toISOString().split("T")[0];
+    await supabase.from("emails").insert({
+      user_id: user.id, provider: "manual",
+      subject: `Sample Invoice - $250.00 due ${futureDate}`,
+      from_email: "billing@vendor.com",
+      body: `Your invoice of $250.00 is due on ${futureDate}. Please ensure timely payment to avoid service interruption.`,
+      date: new Date().toISOString().split("T")[0],
+      scanned: false, task_created: false,
+    });
+    fetchEmails();
+    showToast("Sample email added!", "info");
+  };
+
+  // ── Preview email + extract task ──────────────────────────────────────────
   const handlePreview = (email) => {
     setPreview(email);
     const extracted = scanEmailForTask(email);
@@ -832,21 +938,9 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
     if (onTaskCreated) onTaskCreated();
   };
 
-  const addSampleEmail = async () => {
-    const futureDate = new Date(Date.now() + 20 * 86400000).toISOString().split("T")[0];
-    await supabase.from("emails").insert({
-      user_id: user.id, provider: "manual",
-      subject: `Sample Invoice - $250.00 due ${futureDate}`,
-      from_email: "billing@vendor.com",
-      body: `Your invoice of $250.00 is due on ${futureDate}. Please ensure payment.`,
-      date: new Date().toISOString().split("T")[0],
-      scanned: false, task_created: false,
-    });
-    fetchEmails();
-    showToast("Sample email added!", "info");
-  };
-
   const unscanned = emails.filter(e => !e.task_created);
+
+  const providerSetupNeeded = false; // Client ID hardcoded
 
   return (
     <div>
@@ -855,25 +949,40 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
         <div className="card-header">
           <div className="card-title"><Ico n="link" size={16} />Email Integrations</div>
         </div>
+
+        {providerSetupNeeded && (
+          <div className="alert alert-info" style={{ marginBottom: 16 }}>
+            <div>
+              <strong>🔑 One-time setup required</strong> to connect Gmail or Outlook.
+              Add <code style={{background:"rgba(99,91,255,0.1)",padding:"1px 6px",borderRadius:4}}>VITE_GMAIL_CLIENT_ID</code> and/or{" "}
+              <code style={{background:"rgba(99,91,255,0.1)",padding:"1px 6px",borderRadius:4}}>VITE_OUTLOOK_CLIENT_ID</code> to your GitHub Secrets,
+              then redeploy. See the <strong>Setup Guide</strong> below for instructions.
+              <br/>In the meantime, use <strong>"Add Sample Email"</strong> to test the task extraction.
+            </div>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           {[
             { id: "gmail", label: "Gmail", icon: "📧", desc: "Google Workspace" },
             { id: "outlook", label: "Outlook", icon: "📮", desc: "Microsoft 365" },
           ].map(p => (
-            <div key={p.id} style={{ flex: "1 1 200px", background: "var(--surface2)", border: `1px solid ${connectedProviders.includes(p.id) ? "var(--accent3)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+            <div key={p.id} style={{ flex: "1 1 200px", background: "var(--surface2)", border: `1px solid ${connectedProviders.includes(p.id) ? "var(--teal)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
               <span style={{ fontSize: 28 }}>{p.icon}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 14 }}>{p.label}</div>
                 <div style={{ fontSize: 11, color: "var(--text3)" }}>{p.desc}</div>
                 {connectedProviders.includes(p.id) && <div style={{ fontSize: 11, color: "var(--teal)", marginTop: 2 }}>✓ Connected</div>}
               </div>
-              {!connectedProviders.includes(p.id) ? (
-                <button className="btn btn-primary btn-sm" onClick={() => showToast(`${p.label} OAuth coming soon!`, "info")}>
-                  Connect
-                </button>
-              ) : (
+              {connecting === p.id ? (
+                <button className="btn btn-ghost btn-sm" disabled>Connecting...</button>
+              ) : connectedProviders.includes(p.id) ? (
                 <button className="btn btn-ghost btn-sm" onClick={simulateScan} disabled={scanning}>
                   <Ico n="refresh" size={12} />{scanning ? "Scanning..." : "Re-scan"}
+                </button>
+              ) : (
+                <button className="btn btn-primary btn-sm" onClick={() => connectProvider(p.id)}>
+                  Connect
                 </button>
               )}
             </div>
@@ -881,17 +990,17 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
         </div>
       </div>
 
-      {/* Scan Button */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+      {/* Scan + Add buttons */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         <button className="btn btn-primary" onClick={simulateScan} disabled={scanning}>
-          <Ico n="scan" size={16} />{scanning ? "⏳ Scanning inbox..." : "🔍 Scan Inbox for Tasks"}
+          <Ico n="scan" size={16} />{scanning ? "⏳ Scanning..." : "🔍 Scan for Tasks"}
         </button>
         <button className="btn btn-ghost" onClick={addSampleEmail}>
           + Add Sample Email
         </button>
         {unscanned.length > 0 && (
           <div className="alert alert-warn" style={{ margin: 0, flex: 1 }}>
-            <strong>{unscanned.length} emails</strong> found with potential tasks. Click to create tasks.
+            <strong>{unscanned.length} email{unscanned.length > 1 ? "s" : ""}</strong> ready — click to create tasks.
           </div>
         )}
       </div>
@@ -901,30 +1010,68 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
         <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 14, marginBottom: 14, color: "var(--navy)" }}>
           Inbox ({emails.length} emails)
         </div>
-        {emails.length === 0 ? (
-          loading ? <div className="loading-wrap"><div className="spinner"/><span>Loading emails...</span></div> : <div className="empty-state"><div className="empty-state-icon">📬</div><p>No emails yet. Add a sample email to test.</p></div>
-        ) : emails.map(email => (
-          <div key={email.id} className={`email-item ${email.task_created ? "has-task" : "no-task"}`} onClick={() => handlePreview(email)}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <span style={{ fontSize: 20, marginTop: 2 }}>{email.provider === "outlook" ? "📮" : "📧"}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="email-subject">{email.subject}</div>
-                <div className="email-from">{email.from_email} · {fmtDate(email.date)}</div>
-                <div className="email-preview">{email.body}</div>
-              </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-                {email.task_created ? (
-                  <span className="badge badge-completed">✅ Task Created</span>
-                ) : email.scanned ? (
-                  <span className="badge badge-pending">⚡ Review</span>
-                ) : (
-                  <span className="badge" style={{ background: "var(--surface2)", color: "var(--text3)" }}>Unscanned</span>
-                )}
+        {emails.length === 0
+          ? loading
+            ? <div className="loading-wrap"><div className="spinner"/><span>Loading emails...</span></div>
+            : <div className="empty-state"><div className="empty-state-icon">📬</div><p>No emails yet. Connect Gmail/Outlook above, or add a sample email to test.</p></div>
+          : emails.map(email => (
+            <div key={email.id} className={`email-item ${email.task_created ? "has-task" : "no-task"}`} onClick={() => handlePreview(email)}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <span style={{ fontSize: 20, marginTop: 2 }}>{email.provider === "outlook" ? "📮" : "📧"}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 600, fontSize: 13, marginBottom: 3 }}>{email.subject}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>{email.from_email} · {fmtDate(email.date)}</div>
+                  <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{email.body}</div>
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  {email.task_created
+                    ? <span className="badge badge-completed">✅ Task Created</span>
+                    : email.scanned
+                      ? <span className="badge badge-pending">⚡ Review</span>
+                      : <span className="badge" style={{ background: "var(--surface2)", color: "var(--text3)" }}>Unscanned</span>}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        }
       </div>
+
+      {/* Setup Guide */}
+      {providerSetupNeeded && (
+        <div className="card" style={{ marginTop: 24 }}>
+          <div className="card-header">
+            <div className="card-title">🔑 Gmail & Outlook Setup Guide</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+            <div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 14, color: "var(--navy)", marginBottom: 10 }}>Gmail Setup</div>
+              <ol style={{ fontSize: 13, color: "var(--text2)", lineHeight: 2, paddingLeft: 18 }}>
+                <li>Go to <strong>console.cloud.google.com</strong></li>
+                <li>Create a project → Enable <strong>Gmail API</strong></li>
+                <li>OAuth consent screen → External → Add your email as test user</li>
+                <li>Credentials → Create OAuth 2.0 Client ID (Web application)</li>
+                <li>Add Authorised redirect URI: <code style={{fontSize:11, background:"var(--surface2)", padding:"1px 5px", borderRadius:3}}>{window.location.origin}{window.location.pathname}</code></li>
+                <li>Copy Client ID → add as GitHub Secret: <code style={{fontSize:11, background:"var(--surface2)", padding:"1px 5px", borderRadius:3}}>VITE_GMAIL_CLIENT_ID</code></li>
+                <li>Copy Client Secret → add as Supabase secret: <code style={{fontSize:11, background:"var(--surface2)", padding:"1px 5px", borderRadius:3}}>GMAIL_CLIENT_SECRET</code></li>
+              </ol>
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 14, color: "var(--navy)", marginBottom: 10 }}>Outlook Setup</div>
+              <ol style={{ fontSize: 13, color: "var(--text2)", lineHeight: 2, paddingLeft: 18 }}>
+                <li>Go to <strong>portal.azure.com</strong> → App registrations</li>
+                <li>New registration → Web platform</li>
+                <li>Add Redirect URI: <code style={{fontSize:11, background:"var(--surface2)", padding:"1px 5px", borderRadius:3}}>{window.location.origin}{window.location.pathname}</code></li>
+                <li>API permissions → Add <strong>Mail.Read</strong></li>
+                <li>Copy Application (client) ID → GitHub Secret: <code style={{fontSize:11, background:"var(--surface2)", padding:"1px 5px", borderRadius:3}}>VITE_OUTLOOK_CLIENT_ID</code></li>
+                <li>Certificates & secrets → New client secret → Supabase secret: <code style={{fontSize:11, background:"var(--surface2)", padding:"1px 5px", borderRadius:3}}>OUTLOOK_CLIENT_SECRET</code></li>
+              </ol>
+            </div>
+          </div>
+          <div className="alert alert-info" style={{ marginTop: 16, marginBottom: 0 }}>
+            After adding secrets, also deploy the Edge Function: run <code style={{fontSize:12}}>supabase functions deploy fetch-emails</code> and add <code style={{fontSize:12}}>GMAIL_CLIENT_ID</code>, <code style={{fontSize:12}}>GMAIL_CLIENT_SECRET</code>, <code style={{fontSize:12}}>OUTLOOK_CLIENT_ID</code>, <code style={{fontSize:12}}>OUTLOOK_CLIENT_SECRET</code> to Supabase project secrets (Dashboard → Edge Functions → Secrets).
+          </div>
+        </div>
+      )}
 
       {/* Preview Modal */}
       {preview && extractedTask && (
@@ -936,46 +1083,49 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
             </div>
             <div className="modal-body">
               <div className="alert alert-info" style={{ marginBottom: 16 }}>
-                🤖 AI has extracted the following details from your email. Review and confirm to create a task.
+                🤖 AI extracted these details. Review and edit before creating the task.
               </div>
               <div className="form-section" style={{ marginBottom: 14 }}>
-                <div className="form-section-title">📬 Email</div>
+                <div className="form-section-title">📬 Source Email</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>{preview.subject}</div>
-                <div style={{ fontSize: 11, color: "var(--text3)" }}>From: {preview.from} · {fmtDate(preview.date)}</div>
+                <div style={{ fontSize: 11, color: "var(--text3)" }}>From: {preview.from_email} · {fmtDate(preview.date)}</div>
               </div>
               <div className="form-section">
-                <div className="form-section-title">✨ Extracted Task Details</div>
-                <div className="field-row" style={{ marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Title</div>
-                    <input value={extractedTask.title} onChange={e => setExtractedTask(t => ({ ...t, title: e.target.value }))} style={{ width: "100%", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
+                <div className="form-section-title">✨ Extracted Details</div>
+                <div className="field"><label>Title</label>
+                  <input value={extractedTask.title} onChange={e => setExtractedTask(t => ({ ...t, title: e.target.value }))} />
+                </div>
+                <div className="field-row">
+                  <div className="field"><label>Vendor</label>
+                    <input value={extractedTask.vendor || ""} onChange={e => setExtractedTask(t => ({ ...t, vendor: e.target.value }))} />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Vendor</div>
-                    <input value={extractedTask.vendor} onChange={e => setExtractedTask(t => ({ ...t, vendor: e.target.value }))} style={{ width: "100%", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", color: "var(--text)", fontSize: 13, outline: "none" }} />
+                  <div className="field"><label>Due Date</label>
+                    <input type="date" value={extractedTask.due_date || ""} onChange={e => setExtractedTask(t => ({ ...t, due_date: e.target.value }))} />
                   </div>
                 </div>
                 <div className="field-row">
                   <div>
                     <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Amount Detected</div>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 22, color: "var(--navy)" }}>{fmtAmt(extractedTask.amount)}</div>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 24, color: "var(--navy)" }}>{fmtAmt(extractedTask.amount)}</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Due Date Detected</div>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 16, color: "var(--text)" }}>{fmtDate(extractedTask.due_date)}</div>
+                  <div className="field"><label>Priority</label>
+                    <select value={extractedTask.priority || "medium"} onChange={e => setExtractedTask(t => ({ ...t, priority: e.target.value }))}>
+                      <option value="high">🔴 High</option>
+                      <option value="medium">🟡 Medium</option>
+                      <option value="low">🟢 Low</option>
+                    </select>
                   </div>
                 </div>
               </div>
             </div>
             <div className="modal-foot">
               <button className="btn btn-ghost" onClick={() => setPreview(null)}>Cancel</button>
-              {!preview.task_created ? (
-                <button className="btn btn-primary" onClick={handleCreateTask} disabled={saving}>
-                  {saving ? "Creating..." : "✅ Create Task from Email"}
-                </button>
-              ) : (
-                <div className="alert alert-success" style={{ margin: 0 }}>✅ Task already created from this email.</div>
-              )}
+              {!preview.task_created
+                ? <button className="btn btn-primary" onClick={handleCreateTask} disabled={saving}>
+                    {saving ? "Creating..." : "✅ Create Task from Email"}
+                  </button>
+                : <span className="badge badge-completed" style={{ padding: "8px 16px" }}>✅ Task already created</span>
+              }
             </div>
           </div>
         </div>
@@ -983,6 +1133,7 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
     </div>
   );
 }
+
 
 // ─── Payments & Settings Page ─────────────────────────────────────────────────
 function PaymentsSettings({ user, showToast, paymentMethods: initialPMs = [], setPaymentMethods: setGlobalPMs }) {
