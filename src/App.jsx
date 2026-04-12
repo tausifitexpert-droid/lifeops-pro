@@ -18,34 +18,82 @@ const daysUntil = (d) => {
 
 // Simulated AI email scanner
 const scanEmailForTask = (email) => {
-  const text = (email.subject + " " + email.body).toLowerCase();
-  const amountMatch = email.body.match(/\$[\d,]+\.?\d*/g);
-  const dateMatch = email.body.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*\d{4}/gi) ||
-    email.body.match(/\b\d{1,2}\/\d{1,2}\/\d{4}/g);
-  const vendorMatch = (email.from_email || email.from || "").match(/@([^.]+)\./);
+  const fullText = (email.subject || "") + " " + (email.body || "");
+  const text = fullText.toLowerCase();
+  const fromEmail = email.from_email || email.from || "";
 
-  let amount = null, dueDate = null, vendor = "", category = "payment";
-
-  if (amountMatch) {
-    const amounts = amountMatch.map(a => parseFloat(a.replace(/[$,]/g, ""))).filter(a => a > 0);
+  // Extract amount
+  const amountMatches = fullText.match(/\$[\d,]+\.?\d*/g);
+  let amount = null;
+  if (amountMatches) {
+    const amounts = amountMatches.map(a => parseFloat(a.replace(/[$,]/g, ""))).filter(a => a > 0);
     amount = amounts.length ? Math.max(...amounts) : null;
   }
-  if (dateMatch) {
-    try { dueDate = new Date(dateMatch[0]).toISOString().split("T")[0]; } catch { }
-  }
-  if (vendorMatch) vendor = vendorMatch[1].charAt(0).toUpperCase() + vendorMatch[1].slice(1);
 
+  // Try to parse a date string, only accept recent/future dates
+  const tryDate = (d) => {
+    try {
+      const parsed = new Date(d);
+      if (isNaN(parsed.getTime())) return null;
+      const diff = (parsed.getTime() - Date.now()) / 86400000;
+      if (diff < -30 || diff > 730) return null;
+      return parsed.toISOString().split("T")[0];
+    } catch { return null; }
+  };
+
+  let due_date = null;
+
+  // "due on/by April 30, 2026"
+  const dueM = fullText.match(/due\s+(?:on|by|before|date[:\s]+)?\s*([A-Za-z]+\.?\s+\d{1,2},?\s*\d{4}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i);
+  if (dueM) due_date = tryDate(dueM[1]);
+
+  // Full month: "April 30, 2026"
+  if (!due_date) {
+    const longM = fullText.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*\d{4}/gi);
+    if (longM) { for (const m of longM) { due_date = tryDate(m); if (due_date) break; } }
+  }
+
+  // Short month: "Apr 30, 2026"
+  if (!due_date) {
+    const shortM = fullText.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s+\d{1,2},?\s*\d{4}/gi);
+    if (shortM) { for (const m of shortM) { due_date = tryDate(m); if (due_date) break; } }
+  }
+
+  // ISO: "2026-04-30"
+  if (!due_date) {
+    const isoM = fullText.match(/\b(\d{4}-\d{2}-\d{2})\b/g);
+    if (isoM) { for (const m of isoM) { due_date = tryDate(m); if (due_date) break; } }
+  }
+
+  // Slash: "04/30/2026"
+  if (!due_date) {
+    const slashM = fullText.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g);
+    if (slashM) {
+      for (const m of slashM) {
+        const p = m.split("/");
+        const yr = p[2].length === 2 ? "20" + p[2] : p[2];
+        due_date = tryDate(yr + "-" + p[0].padStart(2,"0") + "-" + p[1].padStart(2,"0"));
+        if (due_date) break;
+      }
+    }
+  }
+
+  // Vendor from email address
+  const vendorMatch = fromEmail.match(/@([^.]+)\./);
+  const vendor = vendorMatch ? vendorMatch[1].charAt(0).toUpperCase() + vendorMatch[1].slice(1) : "";
+
+  // Category
+  let category = "payment";
   if (text.includes("subscription") || text.includes("renewal") || text.includes("plan")) category = "subscription";
-  else if (text.includes("domain")) category = "domain";
+  else if (text.includes("domain") || text.includes("hosting")) category = "domain";
   else if (text.includes("invoice")) category = "invoice";
+  else if (text.includes("tax") || text.includes("irs")) category = "tax";
+  else if (text.includes("insurance")) category = "insurance";
 
   return {
-    title: email.subject.replace(/^(Re:|Fwd:)\s*/i, "").slice(0, 80),
-    vendor,
-    amount,
-    due_date: dueDate,
-    category,
-    description: `Auto-extracted from email: ${email.from_email || email.from || ""} on ${fmtDate(email.date)}`,
+    title: (email.subject || "").replace(/^(Re:|Fwd:)\s*/i, "").slice(0, 80),
+    vendor, amount, due_date, category,
+    description: `Auto-extracted from email: ${fromEmail} on ${fmtDate(email.date)}`,
     source: "email",
     email_id: email.id,
     priority: amount > 500 ? "high" : amount > 100 ? "medium" : "low",
