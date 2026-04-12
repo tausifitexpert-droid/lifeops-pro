@@ -891,8 +891,9 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
           body: JSON.stringify({ action: "connect", code, provider, redirect_uri: redirectUri }),
         });
         const result = await resp.json();
+        console.log("Edge Function result:", JSON.stringify(result));
         if (result.error) throw new Error(result.error);
-        showToast(`✅ ${result.count} new emails imported from ${provider === "gmail" ? "Gmail" : "Outlook"}!`, "success", "Connected");
+        showToast(`✅ Gmail connected! ${result.count ?? result.total ?? "Some"} emails imported.`, "success", "Connected");
         fetchEmails();
       } catch (err) {
         showToast(`Step failed: ${err.message}`, "error", "Connection Error");
@@ -1964,31 +1965,54 @@ export default function App({ onBackToLanding }) {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const { toasts, show: showToast } = useToast();
 
+  // Restore user from Supabase profile
+  const restoreUser = async (sessionUser) => {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles").select("*").eq("id", sessionUser.id).single();
+      if (profile) {
+        setUser({ ...sessionUser, ...profile });
+        setPage(profile.role === "admin" ? "admin" : "dashboard");
+        const { data: pms } = await supabase
+          .from("payment_methods").select("*").eq("user_id", sessionUser.id);
+        setPaymentMethods(pms || []);
+      } else {
+        setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
+      }
+    } catch (err) {
+      console.error("restoreUser error:", err);
+      // Still set user so they don't get logged out
+      setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
+    }
+  };
+
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // 1. Check for existing session on mount
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       try {
+        if (error) console.error("getSession error:", error);
         if (session?.user) {
-          const { data: profile } = await supabase
-            .from("profiles").select("*").eq("id", session.user.id).single();
-          if (profile) {
-            setUser({ ...session.user, ...profile });
-            setPage(profile.role === "admin" ? "admin" : "dashboard");
-            const { data: pms } = await supabase
-              .from("payment_methods").select("*").eq("user_id", session.user.id);
-            setPaymentMethods(pms || []);
-          } else {
-            // Profile missing — still restore auth user with defaults
-            setUser({ ...session.user, role: "user", reminder_days: [30, 7] });
-          }
+          await restoreUser(session.user);
         }
-      } catch (err) {
-        console.error("Session restore error:", err);
       } finally {
         setAuthLoading(false);
       }
     });
+
+    // 2. Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_OUT") { setUser(null); setPage("dashboard"); }
+      console.log("Auth event:", event);
+      if (event === "SIGNED_IN" && session?.user) {
+        await restoreUser(session.user);
+        setAuthLoading(false);
+      } else if (event === "SIGNED_OUT") {
+        setUser(null);
+        setPage("dashboard");
+        setPaymentMethods([]);
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        // Token refreshed silently — update session but keep current page
+        setUser(prev => prev ? { ...prev, ...session.user } : null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
