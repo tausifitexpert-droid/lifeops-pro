@@ -780,7 +780,7 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
   const [extractedTask, setExtractedTask] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-emails`;
+  const EDGE_URL = "https://vqxuuswirettloxbeudp.supabase.co/functions/v1/fetch-emails";
 
   const fetchEmails = async () => {
     try {
@@ -858,13 +858,22 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
       setConnecting(provider);
       showToast(`Connecting ${provider === "gmail" ? "Gmail" : "Outlook"}...`, "email", "Connecting");
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Wait for session to be restored (up to 5 seconds)
+        let session = null;
+        for (let i = 0; i < 10; i++) {
+          const { data } = await supabase.auth.getSession();
+          if (data?.session?.access_token) { session = data.session; break; }
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (!session) throw new Error("Not logged in. Please log in and try again.");
+
+        const edgeUrl = "https://vqxuuswirettloxbeudp.supabase.co/functions/v1/fetch-emails";
         const redirectUri = `${window.location.origin}${window.location.pathname}`;
-        const resp = await fetch(EDGE_URL, {
+        const resp = await fetch(edgeUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`,
+            "Authorization": `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ action: "connect", code, provider, redirect_uri: redirectUri }),
         });
@@ -874,6 +883,7 @@ function EmailScanner({ user, onTaskCreated, showToast }) {
         fetchEmails();
       } catch (err) {
         showToast(`Connection failed: ${err.message}`, "error", "Error");
+        console.error("OAuth exchange error:", err);
       } finally {
         setConnecting(null);
       }
