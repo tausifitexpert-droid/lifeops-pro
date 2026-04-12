@@ -22,81 +22,121 @@ const scanEmailForTask = (email) => {
   const text = fullText.toLowerCase();
   const fromEmail = email.from_email || email.from || "";
 
-  // Extract amount
-  const amountMatches = fullText.match(/\$[\d,]+\.?\d*/g);
+  // ── Amount extraction ─────────────────────────────────────────────────────
+  // Catches: $847.32, $1,200, USD 847.32, CAD 99.00, £50, €200
+  const amountPatterns = [
+    /\$[\d,]+\.?\d*/g,
+    /USD\s*([\d,]+\.?\d*)/gi,
+    /CAD\s*([\d,]+\.?\d*)/gi,
+    /GBP\s*([\d,]+\.?\d*)/gi,
+    /£([\d,]+\.?\d*)/g,
+    /€([\d,]+\.?\d*)/g,
+    /total(?:\s+(?:amount|due|payable))?[:\s]+\$?([\d,]+\.?\d*)/gi,
+    /amount\s+due[:\s]+\$?([\d,]+\.?\d*)/gi,
+  ];
   let amount = null;
-  if (amountMatches) {
-    const amounts = amountMatches.map(a => parseFloat(a.replace(/[$,]/g, ""))).filter(a => a > 0);
-    amount = amounts.length ? Math.max(...amounts) : null;
+  const allAmounts = [];
+  for (const pattern of amountPatterns) {
+    const matches = fullText.match(pattern) || [];
+    for (const m of matches) {
+      const num = parseFloat(m.replace(/[^\d.]/g, ""));
+      if (num > 0 && num < 1000000) allAmounts.push(num);
+    }
   }
+  if (allAmounts.length) amount = Math.max(...allAmounts);
 
-  // Try to parse a date string, only accept recent/future dates
+  // ── Date extraction ───────────────────────────────────────────────────────
+  // Accept dates up to 365 days in past (invoice may be old, due date may have passed)
+  // and up to 2 years in future
   const tryDate = (d) => {
     try {
       const parsed = new Date(d);
       if (isNaN(parsed.getTime())) return null;
-      const diff = (parsed.getTime() - Date.now()) / 86400000;
-      if (diff < -30 || diff > 730) return null;
+      const yr = parsed.getFullYear();
+      if (yr < 2024 || yr > 2028) return null; // sanity check on year
       return parsed.toISOString().split("T")[0];
     } catch { return null; }
   };
 
   let due_date = null;
 
-  // "due on/by April 30, 2026"
-  const dueM = fullText.match(/due\s+(?:on|by|before|date[:\s]+)?\s*([A-Za-z]+\.?\s+\d{1,2},?\s*\d{4}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i);
-  if (dueM) due_date = tryDate(dueM[1]);
+  // Priority 1: explicit "due" keyword context
+  const dueKeyword = fullText.match(
+    /(?:due|pay(?:ment)?\s+by|due\s+(?:on|by|before|date))[:\s]+([A-Za-z]+ \d{1,2},?\s*\d{4}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i
+  );
+  if (dueKeyword) due_date = tryDate(dueKeyword[1]);
 
-  // Full month: "April 30, 2026"
+  // Priority 2: full month name "April 30, 2026"
   if (!due_date) {
-    const longM = fullText.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*\d{4}/gi);
-    if (longM) { for (const m of longM) { due_date = tryDate(m); if (due_date) break; } }
+    const longM = fullText.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*\d{4}/gi) || [];
+    for (const m of longM) { due_date = tryDate(m); if (due_date) break; }
   }
 
-  // Short month: "Apr 30, 2026"
+  // Priority 3: short month "Apr 30, 2026" or "Apr. 30, 2026"
   if (!due_date) {
-    const shortM = fullText.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s+\d{1,2},?\s*\d{4}/gi);
-    if (shortM) { for (const m of shortM) { due_date = tryDate(m); if (due_date) break; } }
+    const shortM = fullText.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s+\d{1,2},?\s*\d{4}/gi) || [];
+    for (const m of shortM) { due_date = tryDate(m); if (due_date) break; }
   }
 
-  // ISO: "2026-04-30"
+  // Priority 4: ISO format "2026-04-30"
   if (!due_date) {
-    const isoM = fullText.match(/\b(\d{4}-\d{2}-\d{2})\b/g);
-    if (isoM) { for (const m of isoM) { due_date = tryDate(m); if (due_date) break; } }
+    const isoM = fullText.match(/\b(20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))\b/g) || [];
+    for (const m of isoM) { due_date = tryDate(m); if (due_date) break; }
   }
 
-  // Slash: "04/30/2026"
+  // Priority 5: US slash "04/30/2026"
   if (!due_date) {
-    const slashM = fullText.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g);
-    if (slashM) {
-      for (const m of slashM) {
-        const p = m.split("/");
-        const yr = p[2].length === 2 ? "20" + p[2] : p[2];
-        due_date = tryDate(yr + "-" + p[0].padStart(2,"0") + "-" + p[1].padStart(2,"0"));
-        if (due_date) break;
-      }
+    const slashM = fullText.match(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/g) || [];
+    for (const m of slashM) {
+      const p = m.split("/");
+      due_date = tryDate(p[2] + "-" + p[0].padStart(2,"0") + "-" + p[1].padStart(2,"0"));
+      if (due_date) break;
     }
   }
 
-  // Vendor from email address
-  const vendorMatch = fromEmail.match(/@([^.]+)\./);
-  const vendor = vendorMatch ? vendorMatch[1].charAt(0).toUpperCase() + vendorMatch[1].slice(1) : "";
+  // ── Vendor extraction ─────────────────────────────────────────────────────
+  // Extract main domain name, not subdomain
+  // e.g. billing@notifications.google.com → "Google"
+  // e.g. noreply@aws.amazon.com → "Amazon"
+  let vendor = "";
+  const domainMatch = fromEmail.match(/@(?:[^@]+\.)?([^.@]+)\.[a-z]{2,}$/i);
+  if (domainMatch) {
+    // Map common domains to proper names
+    const knownVendors = {
+      google: "Google", amazon: "Amazon", aws: "Amazon Web Services",
+      microsoft: "Microsoft", apple: "Apple", netflix: "Netflix",
+      spotify: "Spotify", slack: "Slack", dropbox: "Dropbox",
+      adobe: "Adobe", github: "GitHub", godaddy: "GoDaddy",
+      cloudflare: "Cloudflare", digitalocean: "DigitalOcean",
+      zoom: "Zoom", notion: "Notion", figma: "Figma",
+      stripe: "Stripe", paypal: "PayPal", shopify: "Shopify",
+      quickbooks: "QuickBooks", mailchimp: "Mailchimp",
+    };
+    const domain = domainMatch[1].toLowerCase();
+    vendor = knownVendors[domain] || (domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1));
+  }
 
-  // Category
+  // Also try extracting vendor from subject line "Invoice from Acme Corp"
+  if (!vendor || vendor.length < 2) {
+    const fromSubject = (email.subject || "").match(/(?:from|by)\s+([A-Z][A-Za-z0-9\s&]+?)(?:\s*[-–:|]|\s*#|$)/);
+    if (fromSubject) vendor = fromSubject[1].trim().slice(0, 40);
+  }
+
+  // ── Category ──────────────────────────────────────────────────────────────
   let category = "payment";
-  if (text.includes("subscription") || text.includes("renewal") || text.includes("plan")) category = "subscription";
+  if (text.includes("subscription") || text.includes("renewal") || text.includes("renew")) category = "subscription";
   else if (text.includes("domain") || text.includes("hosting")) category = "domain";
   else if (text.includes("invoice")) category = "invoice";
-  else if (text.includes("tax") || text.includes("irs")) category = "tax";
+  else if (text.includes("tax") || text.includes("irs") || text.includes("vat")) category = "tax";
   else if (text.includes("insurance")) category = "insurance";
 
   return {
     title: (email.subject || "").replace(/^(Re:|Fwd:)\s*/i, "").slice(0, 80),
     vendor, amount, due_date, category,
-    description: `Auto-extracted from email: ${fromEmail} on ${fmtDate(email.date)}`,
+    description: "Auto-extracted from: " + fromEmail + " on " + fmtDate(email.date),
     source: "email",
     email_id: email.id,
-    priority: amount > 500 ? "high" : amount > 100 ? "medium" : "low",
+    priority: amount && amount > 500 ? "high" : amount && amount > 100 ? "medium" : "low",
   };
 };
 
