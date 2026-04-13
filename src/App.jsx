@@ -789,7 +789,7 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           <div>
             <div className="panel-title">{task.title}</div>
             <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>
-              {task.vendor && `${task.vendor} · `}Created {fmtDate(task.createdAt)}
+              {task.vendor && `${task.vendor} · `}Created {fmtDate(task.created_at)}
             </div>
           </div>
           <button className="modal-close" onClick={onClose}><Ico n="close" size={14} /></button>
@@ -799,12 +799,12 @@ function TaskDetailPanel({ task, onClose, onEdit, onDelete, onAdminPay, user, sh
           <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
             <div style={{ flex: 1, background: "var(--surface2)", borderRadius: 12, padding: "16px 20px" }}>
               <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Amount</div>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 26, color: task.adminPaid ? "var(--accent3)" : "var(--text)" }}>{fmtAmt(task.amount)}</div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, fontSize: 26, color: task.admin_paid ? "var(--accent3)" : "var(--text)" }}>{fmtAmt(task.amount)}</div>
             </div>
             <div style={{ flex: 1, background: "var(--surface2)", borderRadius: 12, padding: "16px 20px" }}>
               <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Due Date</div>
               <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 16, color: days !== null && days < 0 ? "var(--high)" : days !== null && days <= 7 ? "var(--med)" : "var(--text)" }}>
-                {fmtDate(task.dueDate)}
+                {fmtDate(task.due_date)}
                 {days !== null && <span style={{ fontSize: 12, color: "var(--text3)", display: "block", marginTop: 2 }}>
                   {days < 0 ? `${Math.abs(days)} days overdue` : days === 0 ? "Due today!" : `${days} days left`}
                 </span>}
@@ -2081,14 +2081,15 @@ export default function App({ onBackToLanding }) {
   useEffect(() => {
     let mounted = true;
 
-    const restoreUser = async (sessionUser) => {
+    const loadUserProfile = async (sessionUser) => {
       try {
         const { data: profile } = await supabase
           .from("profiles").select("*").eq("id", sessionUser.id).single();
         if (!mounted) return;
         if (profile) {
           setUser({ ...sessionUser, ...profile });
-          setPage(prev => prev === "dashboard" ? (profile.role === "admin" ? "admin" : "dashboard") : prev);
+          setPage(prev => prev === "dashboard"
+            ? (profile.role === "admin" ? "admin" : "dashboard") : prev);
           const { data: pms } = await supabase
             .from("payment_methods").select("*").eq("user_id", sessionUser.id);
           setPaymentMethods(pms || []);
@@ -2096,28 +2097,48 @@ export default function App({ onBackToLanding }) {
           setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
         }
       } catch (err) {
-        console.error("restoreUser error:", err);
+        console.error("loadUserProfile error:", err);
         if (mounted) setUser({ ...sessionUser, role: "user", reminder_days: [30, 7] });
       }
     };
 
-    // Check session once on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      if (session?.user) {
-        await restoreUser(session.user);
-      }
-      if (mounted) setAuthLoading(false);
-    });
+    // CORRECT Supabase v2 pattern:
+    // onAuthStateChange fires INITIAL_SESSION after Supabase reads localStorage.
+    // Using getSession() directly has a race condition — it may run before
+    // Supabase finishes initializing from localStorage, returning null session.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
 
-    // Only handle explicit sign out — don't re-run restoreUser on every event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        setUser(null);
-        setPage("dashboard");
-        setPaymentMethods([]);
+        if (event === "INITIAL_SESSION") {
+          // Fires once on startup — session is populated if user was logged in
+          if (session?.user) {
+            await loadUserProfile(session.user);
+          }
+          if (mounted) setAuthLoading(false);
+
+        } else if (event === "SIGNED_IN") {
+          // Fires on explicit login (not on page refresh — that's INITIAL_SESSION)
+          if (session?.user) {
+            await loadUserProfile(session.user);
+          }
+
+        } else if (event === "TOKEN_REFRESHED") {
+          // Token silently refreshed — update user but keep everything else
+          if (session?.user && mounted) {
+            setUser(prev => prev ? { ...prev, ...session.user } : null);
+          }
+
+        } else if (event === "SIGNED_OUT") {
+          if (mounted) {
+            setUser(null);
+            setPage("dashboard");
+            setPaymentMethods([]);
+            setAuthLoading(false);
+          }
+        }
       }
-    });
+    );
 
     return () => {
       mounted = false;
