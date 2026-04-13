@@ -20,7 +20,13 @@ const daysUntil = (d) => {
 const scanEmailForTask = (email) => {
   const subject = email.subject || "";
   const body = email.body || "";
-  const fullText = subject + " " + body;
+  // Strip CSS/style blocks from HTML body before extraction
+  const cleanBody = body
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ").trim();
+  const fullText = subject + " " + cleanBody;
   const fromEmail = email.from_email || email.from || "";
 
   // ── Vendor: collect consecutive proper nouns from subject ────────────────
