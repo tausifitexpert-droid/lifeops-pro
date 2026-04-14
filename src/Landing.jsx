@@ -769,7 +769,7 @@ function Footer({ setPage, onEnterApp }) {
 }
 
 // ─── CTA Section ──────────────────────────────────────────────────────────────
-function CTASection({ onEnterApp, title = "Ready to reclaim your time?", sub = "Join thousands of professionals who trust LifeOps Pro to handle their administrative tasks efficiently and reliably." }) {
+function CTASection({ onEnterApp, setPage, title = "Ready to reclaim your time?", sub = "Join thousands of professionals who trust LifeOps Pro to handle their administrative tasks efficiently and reliably." }) {
   return (
     <section className="cta-section">
       <div className="container">
@@ -777,7 +777,7 @@ function CTASection({ onEnterApp, title = "Ready to reclaim your time?", sub = "
         <p className="cta-sub">{sub}</p>
         <div className="cta-actions">
           <button className="hero-btn-gold" onClick={onEnterApp}>Get Started Free →</button>
-          <button className="hero-btn-ghost" onClick={onEnterApp}>View Pricing Plans</button>
+          <button className="hero-btn-ghost" onClick={() => setPage ? setPage('Pricing') : onEnterApp()}>View Pricing Plans</button>
         </div>
         <p className="cta-trust">★ Trusted by 500+ Professionals · No credit card required</p>
       </div>
@@ -815,7 +815,7 @@ function HomePage({ onEnterApp, setPage }) {
             <p className="hero-sub">LifeOps Pro combines intelligent AI automation with dedicated human support to manage your scheduling, reminders, and administrative tasks seamlessly.</p>
             <div className="hero-actions">
               <button className="hero-btn-gold" onClick={onEnterApp}>Get Started →</button>
-              <button className="hero-btn-ghost" onClick={() => setPage('Features')}>Try Free</button>
+              <button className="hero-btn-ghost" onClick={onEnterApp}>Try Free</button>
             </div>
             <div className="hero-trust">
               <span className="hero-trust-stars">★★★★★</span>
@@ -1060,13 +1060,13 @@ function HomePage({ onEnterApp, setPage }) {
         </div>
       </section>
 
-      <CTASection onEnterApp={onEnterApp} />
+      <CTASection onEnterApp={onEnterApp} setPage={setPage} />
     </div>
   );
 }
 
 // ─── FEATURES PAGE ─────────────────────────────────────────────────────────────
-function FeaturesPage({ onEnterApp }) {
+function FeaturesPage({ onEnterApp, setPage }) {
   useReveal();
   return (
     <div>
@@ -1132,34 +1132,43 @@ function FeaturesPage({ onEnterApp }) {
         </div>
       </section>
 
-      <CTASection onEnterApp={onEnterApp} title="Start automating your life admin today." sub="Join 500+ professionals who've reclaimed their time with LifeOps Pro." />
+      <CTASection onEnterApp={onEnterApp} setPage={setPage} title="Start automating your life admin today." sub="Join 500+ professionals who've reclaimed their time with LifeOps Pro." />
     </div>
   );
 }
 
 // ─── PRICING PAGE ──────────────────────────────────────────────────────────────
-function PricingPage({ onEnterApp }) {
+function PricingPage({ onEnterApp, setPage }) {
   useReveal();
+  const [annual, setAnnual] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('Professional');
+
   const plans = [
     {
-      name: 'Starter', price: '$0', period: '/month forever', popular: false,
+      name: 'Starter', monthlyPrice: 0, popular: false,
       desc: 'Perfect for individuals getting started with life administration.',
       features: ['Up to 10 tasks per month', 'Email scanner (Gmail)', '2 reminders per task', 'Basic dashboard', 'Email support'],
       missing: ['Admin payment service', 'SMS notifications', 'Priority support'],
     },
     {
-      name: 'Professional', price: '$19', period: '/month', popular: true,
+      name: 'Professional', monthlyPrice: 19, popular: true,
       desc: 'For professionals who want full automation and peace of mind.',
       features: ['Unlimited tasks', 'Gmail + Outlook scanning', '5 reminders per task', 'SMS + email notifications', 'Admin payment service ($4.99/txn)', 'Advanced analytics', 'Priority support'],
       missing: [],
     },
     {
-      name: 'Business', price: '$49', period: '/month', popular: false,
+      name: 'Business', monthlyPrice: 49, popular: false,
       desc: 'For small organizations managing multiple users and high payment volumes.',
       features: ['Everything in Professional', 'Up to 10 team members', 'Shared admin panel', 'Full bill management', 'Dedicated concierge', 'Custom integrations', 'SLA support'],
       missing: [],
     },
   ];
+
+  const getPrice = (p) => {
+    if (p.monthlyPrice === 0) return { display: '$0', period: '/month forever' };
+    const price = annual ? Math.round(p.monthlyPrice * 0.8) : p.monthlyPrice;
+    return { display: `$${price}`, period: annual ? '/month, billed annually' : '/month' };
+  };
 
   return (
     <div>
@@ -1172,30 +1181,66 @@ function PricingPage({ onEnterApp }) {
 
       <section className="section">
         <div className="container">
+          {/* Monthly / Annual Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 48 }}>
+            <span style={{ fontSize: 15, fontWeight: 500, color: !annual ? 'var(--navy)' : 'var(--text3)' }}>Monthly</span>
+            <div
+              onClick={() => setAnnual(!annual)}
+              style={{ width: 52, height: 28, borderRadius: 14, background: annual ? 'var(--navy)' : '#D1D5DB', cursor: 'pointer', position: 'relative', transition: 'background 0.25s' }}
+            >
+              <div style={{ position: 'absolute', top: 3, left: annual ? 26 : 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.25s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+            </div>
+            <span style={{ fontSize: 15, fontWeight: 500, color: annual ? 'var(--navy)' : 'var(--text3)' }}>
+              Annual <span style={{ background: 'var(--teal)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 50, marginLeft: 4 }}>Save 20%</span>
+            </span>
+          </div>
+
           <div className="pricing-grid">
-            {plans.map((p, i) => (
-              <div key={i} className={`pricing-card ${p.popular ? 'popular' : ''} reveal reveal-delay-${i + 1}`}>
-                {p.popular && <div className="pricing-popular-badge">⭐ Most Popular</div>}
-                <div className="pricing-name">{p.name}</div>
-                <div className="pricing-desc">{p.desc}</div>
-                <div className="pricing-price">{p.price}</div>
-                <div className="pricing-period">{p.period}</div>
-                <hr className="pricing-divider" />
+            {plans.map((p, i) => {
+              const { display, period } = getPrice(p);
+              const isSelected = selectedPlan === p.name;
+              const isPopular = p.popular;
+              return (
+              <div
+                key={i}
+                className={`pricing-card ${isPopular && !isSelected ? 'popular' : ''} reveal reveal-delay-${i + 1}`}
+                onClick={() => setSelectedPlan(p.name)}
+                style={{
+                  cursor: 'pointer',
+                  border: isSelected ? `2px solid var(--gold)` : undefined,
+                  background: isSelected && !isPopular ? 'var(--navy)' : undefined,
+                  transform: isSelected ? 'translateY(-6px)' : undefined,
+                  boxShadow: isSelected ? '0 16px 48px rgba(27,42,123,0.22)' : undefined,
+                }}
+              >
+                {isSelected && <div className="pricing-popular-badge" style={{ background: 'var(--gold)' }}>✓ Selected</div>}
+                {!isSelected && isPopular && <div className="pricing-popular-badge">⭐ Most Popular</div>}
+                <div className="pricing-name" style={{ color: isSelected && !isPopular ? '#fff' : undefined }}>{p.name}</div>
+                <div className="pricing-desc" style={{ color: isSelected && !isPopular ? 'rgba(255,255,255,0.65)' : undefined }}>{p.desc}</div>
+                <div className="pricing-price" style={{ color: isSelected ? 'var(--gold)' : undefined }}>{display}</div>
+                <div className="pricing-period" style={{ color: isSelected && !isPopular ? 'rgba(255,255,255,0.5)' : undefined }}>{period}</div>
+                <hr className="pricing-divider" style={{ borderColor: isSelected && !isPopular ? 'rgba(255,255,255,0.1)' : undefined }} />
                 <div className="pricing-features">
                   {p.features.map((f, j) => (
-                    <div key={j} className="pricing-feature"><span className="pricing-check">✓</span>{f}</div>
+                    <div key={j} className="pricing-feature" style={{ color: isSelected && !isPopular ? 'rgba(255,255,255,0.85)' : undefined }}>
+                      <span className="pricing-check" style={{ color: isSelected ? 'var(--gold)' : undefined }}>✓</span>{f}
+                    </div>
                   ))}
                   {p.missing.map((f, j) => (
-                    <div key={j} className="pricing-feature" style={{ opacity: 0.35 }}><span style={{ color: 'inherit' }}>✗</span>{f}</div>
+                    <div key={j} className="pricing-feature" style={{ opacity: 0.35 }}><span>✗</span>{f}</div>
                   ))}
                 </div>
                 <div className="pricing-cta">
-                  <button className={`pricing-btn ${p.popular ? 'pricing-btn-gold' : 'pricing-btn-outline'}`} onClick={onEnterApp}>
-                    {p.price === '$0' ? 'Get Started Free' : 'Start Free Trial'}
+                  <button
+                    className={`pricing-btn ${isSelected ? 'pricing-btn-gold' : isPopular ? 'pricing-btn-gold' : 'pricing-btn-outline'}`}
+                    onClick={(e) => { e.stopPropagation(); onEnterApp(); }}
+                  >
+                    {p.monthlyPrice === 0 ? 'Get Started Free' : 'Start Free Trial'}
                   </button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           <div style={{ marginTop: 64, background: 'var(--bg2)', borderRadius: 20, padding: '40px 48px', border: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }} className="reveal">
@@ -1224,13 +1269,13 @@ function PricingPage({ onEnterApp }) {
         </div>
       </section>
 
-      <CTASection onEnterApp={onEnterApp} title="Start free, upgrade when you're ready." sub="No credit card required for the Starter plan. Upgrade anytime as your needs grow." />
+      <CTASection onEnterApp={onEnterApp} setPage={setPage} title="Start free, upgrade when you're ready." sub="No credit card required for the Starter plan. Upgrade anytime as your needs grow." />
     </div>
   );
 }
 
 // ─── ABOUT PAGE ───────────────────────────────────────────────────────────────
-function AboutPage({ onEnterApp }) {
+function AboutPage({ onEnterApp, setPage }) {
   useReveal();
   return (
     <div>
@@ -1342,7 +1387,7 @@ function AboutPage({ onEnterApp }) {
         </div>
       </section>
 
-      <CTASection onEnterApp={onEnterApp} title="Join Us on This Journey." sub="Experience the freedom of having a dedicated team managing your life administration. Start your free trial today." />
+      <CTASection onEnterApp={onEnterApp} setPage={setPage} title="Join Us on This Journey." sub="Experience the freedom of having a dedicated team managing your life administration. Start your free trial today." />
     </div>
   );
 }
@@ -1453,9 +1498,9 @@ export default function LandingApp({ onEnterApp }) {
       <Navbar page={page} setPage={goToPage} onEnterApp={onEnterApp} />
       <div className="lp-page">
         {page === 'Home'     && <HomePage     onEnterApp={onEnterApp} setPage={goToPage} />}
-        {page === 'Features' && <FeaturesPage onEnterApp={onEnterApp} />}
-        {page === 'Pricing'  && <PricingPage  onEnterApp={onEnterApp} />}
-        {page === 'About'    && <AboutPage    onEnterApp={onEnterApp} />}
+        {page === 'Features' && <FeaturesPage onEnterApp={onEnterApp} setPage={goToPage} />}
+        {page === 'Pricing'  && <PricingPage  onEnterApp={onEnterApp} setPage={goToPage} />}
+        {page === 'About'    && <AboutPage    onEnterApp={onEnterApp} setPage={goToPage} />}
         {page === 'Contact'  && <ContactPage  />}
         <Footer setPage={goToPage} onEnterApp={onEnterApp} />
       </div>
