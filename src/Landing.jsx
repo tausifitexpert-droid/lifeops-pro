@@ -360,7 +360,6 @@ const landingCss = `
   .pricing-card.popular {
     border-color: var(--navy);
     box-shadow: 0 8px 40px rgba(27,42,123,0.18);
-    background: var(--navy);
   }
   .pricing-popular-badge {
     position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
@@ -1199,31 +1198,45 @@ function PricingPage({ onEnterApp, setPage }) {
             {plans.map((p, i) => {
               const { display, period } = getPrice(p);
               const isSelected = selectedPlan === p.name;
-              const isPopular = p.popular;
+              // Selected card: navy bg + gold border + raised
+              // Unselected popular card: navy bg + subtle border (default look)
+              // Unselected regular card: white bg
+              const cardBg = isSelected ? 'var(--navy)' : p.popular ? 'var(--navy)' : '#fff';
+              const cardBorder = isSelected ? '2px solid var(--gold)' : p.popular ? '1.5px solid var(--navy)' : '1.5px solid var(--border)';
+              const textColor = (isSelected || p.popular) ? '#fff' : undefined;
+              const subColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.65)' : undefined;
+              const periodColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.5)' : undefined;
+              const dividerColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.1)' : undefined;
+              const featureColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.85)' : undefined;
               return (
               <div
                 key={i}
-                className={`pricing-card ${isPopular && !isSelected ? 'popular' : ''} reveal reveal-delay-${i + 1}`}
+                className={`pricing-card reveal reveal-delay-${i + 1}`}
                 onClick={() => setSelectedPlan(p.name)}
                 style={{
                   cursor: 'pointer',
-                  border: isSelected ? `2px solid var(--gold)` : undefined,
-                  background: isSelected && !isPopular ? 'var(--navy)' : undefined,
-                  transform: isSelected ? 'translateY(-6px)' : undefined,
-                  boxShadow: isSelected ? '0 16px 48px rgba(27,42,123,0.22)' : undefined,
+                  background: cardBg,
+                  border: cardBorder,
+                  transform: isSelected ? 'translateY(-6px)' : p.popular ? 'translateY(-2px)' : undefined,
+                  boxShadow: isSelected ? '0 16px 48px rgba(27,42,123,0.25)' : p.popular ? '0 8px 40px rgba(27,42,123,0.18)' : undefined,
+                  transition: 'all 0.25s ease',
                 }}
               >
-                {isSelected && <div className="pricing-popular-badge" style={{ background: 'var(--gold)' }}>✓ Selected</div>}
-                {!isSelected && isPopular && <div className="pricing-popular-badge">⭐ Most Popular</div>}
-                <div className="pricing-name" style={{ color: isSelected && !isPopular ? '#fff' : undefined }}>{p.name}</div>
-                <div className="pricing-desc" style={{ color: isSelected && !isPopular ? 'rgba(255,255,255,0.65)' : undefined }}>{p.desc}</div>
-                <div className="pricing-price" style={{ color: isSelected ? 'var(--gold)' : undefined }}>{display}</div>
-                <div className="pricing-period" style={{ color: isSelected && !isPopular ? 'rgba(255,255,255,0.5)' : undefined }}>{period}</div>
-                <hr className="pricing-divider" style={{ borderColor: isSelected && !isPopular ? 'rgba(255,255,255,0.1)' : undefined }} />
+                {isSelected
+                  ? <div className="pricing-popular-badge" style={{ background: 'var(--gold)', color: '#1a1200' }}>✓ Selected</div>
+                  : p.popular
+                    ? <div className="pricing-popular-badge">⭐ Most Popular</div>
+                    : null
+                }
+                <div className="pricing-name" style={{ color: textColor }}>{p.name}</div>
+                <div className="pricing-desc" style={{ color: subColor }}>{p.desc}</div>
+                <div className="pricing-price" style={{ color: isSelected ? 'var(--gold)' : p.popular ? 'var(--gold)' : 'var(--navy)' }}>{display}</div>
+                <div className="pricing-period" style={{ color: periodColor }}>{period}</div>
+                <hr className="pricing-divider" style={{ borderColor: dividerColor }} />
                 <div className="pricing-features">
                   {p.features.map((f, j) => (
-                    <div key={j} className="pricing-feature" style={{ color: isSelected && !isPopular ? 'rgba(255,255,255,0.85)' : undefined }}>
-                      <span className="pricing-check" style={{ color: isSelected ? 'var(--gold)' : undefined }}>✓</span>{f}
+                    <div key={j} className="pricing-feature" style={{ color: featureColor }}>
+                      <span className="pricing-check" style={{ color: (isSelected || p.popular) ? 'var(--gold)' : 'var(--teal)' }}>✓</span>{f}
                     </div>
                   ))}
                   {p.missing.map((f, j) => (
@@ -1232,7 +1245,7 @@ function PricingPage({ onEnterApp, setPage }) {
                 </div>
                 <div className="pricing-cta">
                   <button
-                    className={`pricing-btn ${isSelected ? 'pricing-btn-gold' : isPopular ? 'pricing-btn-gold' : 'pricing-btn-outline'}`}
+                    className={`pricing-btn ${(isSelected || p.popular) ? 'pricing-btn-gold' : 'pricing-btn-outline'}`}
                     onClick={(e) => { e.stopPropagation(); onEnterApp(); }}
                   >
                     {p.monthlyPrice === 0 ? 'Get Started Free' : 'Start Free Trial'}
