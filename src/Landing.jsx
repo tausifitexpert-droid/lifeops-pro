@@ -1410,13 +1410,49 @@ function ContactPage() {
   useReveal();
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const handleSubmit = () => {
-    if (!form.name || !form.email || !form.message) return;
-    setSent(true);
-    setTimeout(() => setSent(false), 5000);
-    setForm({ name: '', email: '', subject: '', message: '' });
+  const handleSubmit = async () => {
+    setError('');
+    if (!form.name || !form.email || !form.message) {
+      setError('Please fill in your name, email and message.');
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    setSending(true);
+    try {
+      // Send via Formspree — free, no signup needed for basic use
+      // Replace FORM_ID below with your Formspree form ID after setup
+      const FORMSPREE_ID = 'xdkogpnq'; // tausif.itexpert@gmail.com
+      const res = await fetch(`https://formspree.io/f/${FORMSPREE_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          subject: form.subject || 'General Enquiry',
+          message: form.message,
+          _replyto: form.email,
+        }),
+      });
+      if (res.ok) {
+        setSent(true);
+        setForm({ name: '', email: '', subject: '', message: '' });
+        setTimeout(() => setSent(false), 6000);
+      } else {
+        const data = await res.json();
+        throw new Error(data?.error || 'Failed to send. Please try again.');
+      }
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -1487,7 +1523,14 @@ function ContactPage() {
                 </select>
               </div>
               <div className="contact-field"><label>Message *</label><textarea value={form.message} onChange={e => f('message', e.target.value)} placeholder="Tell us how we can help..." style={{ minHeight: 140 }} /></div>
-              <button className="contact-submit" onClick={handleSubmit}>Send Message →</button>
+              {error && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderLeft: '4px solid #EF4444', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#991B1B', marginBottom: 16 }}>
+                  ⚠️ {error}
+                </div>
+              )}
+              <button className="contact-submit" onClick={handleSubmit} disabled={sending} style={{ opacity: sending ? 0.7 : 1 }}>
+                {sending ? 'Sending...' : 'Send Message →'}
+              </button>
             </div>
           </div>
         </div>
