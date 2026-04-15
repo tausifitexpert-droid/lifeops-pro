@@ -1198,16 +1198,16 @@ function PricingPage({ onEnterApp, setPage }) {
             {plans.map((p, i) => {
               const { display, period } = getPrice(p);
               const isSelected = selectedPlan === p.name;
-              // Selected card: navy bg + gold border + raised
-              // Unselected popular card: navy bg + subtle border (default look)
-              // Unselected regular card: white bg
-              const cardBg = isSelected ? 'var(--navy)' : p.popular ? 'var(--navy)' : '#fff';
-              const cardBorder = isSelected ? '2px solid var(--gold)' : p.popular ? '1.5px solid var(--navy)' : '1.5px solid var(--border)';
-              const textColor = (isSelected || p.popular) ? '#fff' : undefined;
-              const subColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.65)' : undefined;
-              const periodColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.5)' : undefined;
-              const dividerColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.1)' : undefined;
-              const featureColor = (isSelected || p.popular) ? 'rgba(255,255,255,0.85)' : undefined;
+              // A card is "highlighted" only when IT is the selected card.
+              // popular flag only controls the default badge — NOT background when another card is selected.
+              const highlighted = isSelected;
+              const cardBg = highlighted ? 'var(--navy)' : '#fff';
+              const cardBorder = highlighted ? '2px solid var(--gold)' : '1.5px solid var(--border)';
+              const textColor = highlighted ? '#fff' : undefined;
+              const subColor = highlighted ? 'rgba(255,255,255,0.65)' : undefined;
+              const periodColor = highlighted ? 'rgba(255,255,255,0.5)' : undefined;
+              const dividerColor = highlighted ? 'rgba(255,255,255,0.1)' : undefined;
+              const featureColor = highlighted ? 'rgba(255,255,255,0.85)' : undefined;
               return (
               <div
                 key={i}
@@ -1217,8 +1217,8 @@ function PricingPage({ onEnterApp, setPage }) {
                   cursor: 'pointer',
                   background: cardBg,
                   border: cardBorder,
-                  transform: isSelected ? 'translateY(-6px)' : p.popular ? 'translateY(-2px)' : undefined,
-                  boxShadow: isSelected ? '0 16px 48px rgba(27,42,123,0.25)' : p.popular ? '0 8px 40px rgba(27,42,123,0.18)' : undefined,
+                  transform: highlighted ? 'translateY(-6px)' : undefined,
+                  boxShadow: highlighted ? '0 16px 48px rgba(27,42,123,0.25)' : 'var(--shadow)',
                   transition: 'all 0.25s ease',
                 }}
               >
@@ -1230,13 +1230,13 @@ function PricingPage({ onEnterApp, setPage }) {
                 }
                 <div className="pricing-name" style={{ color: textColor }}>{p.name}</div>
                 <div className="pricing-desc" style={{ color: subColor }}>{p.desc}</div>
-                <div className="pricing-price" style={{ color: isSelected ? 'var(--gold)' : p.popular ? 'var(--gold)' : 'var(--navy)' }}>{display}</div>
+                <div className="pricing-price" style={{ color: highlighted ? 'var(--gold)' : 'var(--navy)' }}>{display}</div>
                 <div className="pricing-period" style={{ color: periodColor }}>{period}</div>
                 <hr className="pricing-divider" style={{ borderColor: dividerColor }} />
                 <div className="pricing-features">
                   {p.features.map((f, j) => (
                     <div key={j} className="pricing-feature" style={{ color: featureColor }}>
-                      <span className="pricing-check" style={{ color: (isSelected || p.popular) ? 'var(--gold)' : 'var(--teal)' }}>✓</span>{f}
+                      <span className="pricing-check" style={{ color: highlighted ? 'var(--gold)' : 'var(--teal)' }}>✓</span>{f}
                     </div>
                   ))}
                   {p.missing.map((f, j) => (
@@ -1245,7 +1245,7 @@ function PricingPage({ onEnterApp, setPage }) {
                 </div>
                 <div className="pricing-cta">
                   <button
-                    className={`pricing-btn ${(isSelected || p.popular) ? 'pricing-btn-gold' : 'pricing-btn-outline'}`}
+                    className={`pricing-btn ${highlighted ? 'pricing-btn-gold' : 'pricing-btn-outline'}`}
                     onClick={(e) => { e.stopPropagation(); onEnterApp(); }}
                   >
                     {p.monthlyPrice === 0 ? 'Get Started Free' : 'Start Free Trial'}
