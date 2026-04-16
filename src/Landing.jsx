@@ -1433,11 +1433,12 @@ function ContactPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          subject: form.subject || 'General Enquiry',
-          message: form.message,
+          "Full Name": form.name,
+          "Email Address": form.email,
+          "Subject": form.subject || 'General Enquiry',
+          "Message": form.message,
           _replyto: form.email,
+          _subject: `LifeOps Pro Contact: ${form.subject || 'General Enquiry'} from ${form.name}`,
         }),
       });
       if (res.ok) {
